@@ -14,6 +14,10 @@ const authorProjection =
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
 };
+const userRole = (req: Request) => req.user?.role ?? "user";
+const canModerateRole = (role: string) => role === "moderator" || role === "admin";
+const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
+  a.toString() === b.toString();
 
 export const getComments = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
@@ -72,12 +76,13 @@ export const updateComment = async (req: Request, res: Response) => {
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  const isAuthor = (comment.author as any as Types.ObjectId).equals(req.user._id);
-  if (!isAuthor && !canModerate(req.user.role)) throw new HttpError(403, "Forbidden");
+  const isAuthor = sameId(comment.author as Types.ObjectId, req.user._id);
+  const role = userRole(req);
+  if (!isAuthor && !canModerateRole(role)) throw new HttpError(403, "Forbidden");
 
   const { isAccepted, ...fields } = req.body;
   Object.assign(comment, fields);
-  if (isAccepted !== undefined && canModerate(req.user.role)) {
+  if (isAccepted !== undefined && canModerateRole(role)) {
     comment.isAccepted = isAccepted;
   }
   comment.isEdited = true;
@@ -92,8 +97,8 @@ export const deleteComment = async (req: Request, res: Response) => {
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  const isAuthor = comment.author.equals(req.user._id);
-  if (!isAuthor && !canModerate(req.user.role)) throw new HttpError(403, "Forbidden");
+  const isAuthor = sameId(comment.author as Types.ObjectId, req.user._id);
+  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
 
   await comment.deleteOne();
   await Post.findByIdAndUpdate(comment.postId, { $inc: { commentsCount: -1 } });
@@ -106,8 +111,9 @@ export const likeComment = async (req: Request, res: Response) => {
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  comment.likedBy.addToSet(req.user._id);
-  comment.likes = comment.likedBy.length;
+  const likedBy = comment.likedBy as unknown as Types.Array<Types.ObjectId>;
+  likedBy.addToSet(req.user._id);
+  comment.likes = likedBy.length;
   await comment.save();
 
   await notifyUser({
@@ -126,8 +132,9 @@ export const unlikeComment = async (req: Request, res: Response) => {
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  comment.likedBy.pull(req.user._id);
-  comment.likes = comment.likedBy.length;
+  const likedBy = comment.likedBy as unknown as Types.Array<Types.ObjectId>;
+  likedBy.pull(req.user._id);
+  comment.likes = likedBy.length;
   await comment.save();
 
   res.json({ comment: serializeComment(comment as any, req.user._id) });
@@ -142,8 +149,8 @@ export const acceptComment = async (req: Request, res: Response) => {
   const post = await Post.findById(comment.postId);
   if (!post) throw new HttpError(404, "Post not found");
 
-  const isPostAuthor = post.author.equals(req.user._id);
-  if (!isPostAuthor && !canModerate(req.user.role)) throw new HttpError(403, "Forbidden");
+  const isPostAuthor = sameId(post.author as Types.ObjectId, req.user._id);
+  if (!isPostAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
 
   comment.isAccepted = true;
   await comment.save();

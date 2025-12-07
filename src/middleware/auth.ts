@@ -45,7 +45,8 @@ export const requireRole =
       next(new HttpError(401, "Authentication required"));
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    const role: UserRole = req.user.role ?? "user";
+    if (!roles.includes(role)) {
       next(new HttpError(403, "Forbidden"));
       return;
     }

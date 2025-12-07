@@ -15,6 +15,11 @@ const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
 };
 
+const userRole = (req: Request) => req.user?.role ?? "user";
+const canModerateRole = (role: string) => role === "moderator" || role === "admin";
+const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
+  a.toString() === b.toString();
+
 export const listPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query);
   const { categoryId, search } = req.query as { categoryId?: string; search?: string };
@@ -97,19 +102,18 @@ export const createPost = async (req: Request, res: Response) => {
   res.status(201).json({ post: serializePost(post as any, req.user._id) });
 };
 
-const canModerate = (role: string) => role === "moderator" || role === "admin";
-
 export const updatePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  const isAuthor = post.author.equals(req.user._id);
-  if (!isAuthor && !canModerate(req.user.role)) throw new HttpError(403, "Forbidden");
+  const isAuthor = sameId(post.author as Types.ObjectId, req.user._id);
+  const role = userRole(req);
+  if (!isAuthor && !canModerateRole(role)) throw new HttpError(403, "Forbidden");
 
   const { isPinned, isSolved, ...fields } = req.body;
-  if ((isPinned !== undefined || isSolved !== undefined) && !canModerate(req.user.role)) {
+  if ((isPinned !== undefined || isSolved !== undefined) && !canModerateRole(role)) {
     throw new HttpError(403, "Only moderators can change pin/solve state");
   }
 
@@ -134,8 +138,8 @@ export const deletePost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const isAuthor = post.author.equals(req.user._id);
-  if (!isAuthor && !canModerate(req.user.role)) throw new HttpError(403, "Forbidden");
+  const isAuthor = sameId(post.author as Types.ObjectId, req.user._id);
+  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
   await post.deleteOne();
   res.json({ message: "Post deleted" });
 };
@@ -146,8 +150,9 @@ export const likePost = async (req: Request, res: Response) => {
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  post.likedBy.addToSet(req.user._id);
-  post.likes = post.likedBy.length;
+  const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
+  likedBy.addToSet(req.user._id);
+  post.likes = likedBy.length;
   await post.save();
 
   await notifyUser({
@@ -167,8 +172,9 @@ export const unlikePost = async (req: Request, res: Response) => {
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  post.likedBy.pull(req.user._id);
-  post.likes = post.likedBy.length;
+  const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
+  likedBy.pull(req.user._id);
+  post.likes = likedBy.length;
   await post.save();
 
   res.json({ post: serializePost(post as any, req.user._id) });
@@ -180,7 +186,8 @@ export const bookmarkPost = async (req: Request, res: Response) => {
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  post.bookmarkedBy.addToSet(req.user._id);
+  const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
+  bookmarked.addToSet(req.user._id);
   await post.save();
 
   res.json({ post: serializePost(post as any, req.user._id) });
@@ -192,7 +199,8 @@ export const unbookmarkPost = async (req: Request, res: Response) => {
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  post.bookmarkedBy.pull(req.user._id);
+  const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
+  bookmarked.pull(req.user._id);
   await post.save();
 
   res.json({ post: serializePost(post as any, req.user._id) });
