@@ -58,3 +58,20 @@ export const updateUser = async (req: Request, res: Response) => {
   if (!user) throw new HttpError(404, "User not found");
   res.json({ user: serializeUser(user) });
 };
+
+export const searchUsers = async (req: Request, res: Response) => {
+  const { q } = req.query as { q: string };
+  const limit = Math.min(Number(req.query.limit) || 10, 25);
+  const pattern = new RegExp(q, "i");
+
+  const users = await User.find(
+    { $or: [{ username: pattern }, { displayName: pattern }] },
+    authorProjection
+  )
+    .limit(limit)
+    .lean();
+
+  res.json({
+    users: users.map((u) => serializeUser(u as any))
+  });
+};

@@ -3,6 +3,7 @@ import { CommentDocument } from "../models/Comment";
 import { NotificationDocument } from "../models/Notification";
 import { PostDocument } from "../models/Post";
 import { UserDocument } from "../models/User";
+import { formatDisplayTime } from "./date";
 
 const toId = (value: unknown) =>
   value instanceof Types.ObjectId ? value.toString() : (value as string);
@@ -39,6 +40,7 @@ export const serializePost = (
   code: post.code,
   images: post.images ?? [],
   createdAt: post.createdAt,
+  displayTime: post.createdAt ? formatDisplayTime(new Date(post.createdAt)) : undefined,
   tags: post.tags ?? [],
   likes: post.likes ?? (post.likedBy ? (post.likedBy as Types.ObjectId[]).length : 0),
   comments: post.commentsCount ?? 0,
@@ -64,6 +66,7 @@ export const serializeComment = (
   code: comment.code,
   images: comment.images ?? [],
   createdAt: comment.createdAt,
+  displayTime: comment.createdAt ? formatDisplayTime(new Date(comment.createdAt)) : undefined,
   likes: comment.likes ?? (comment.likedBy ? (comment.likedBy as Types.ObjectId[]).length : 0),
   isLiked: hasUserId(comment.likedBy, currentUserId),
   isAccepted: comment.isAccepted ?? false,

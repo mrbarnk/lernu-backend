@@ -12,3 +12,10 @@ export const updateUserSchema = z.object({
     coverPhoto: z.string().url().optional()
   })
 });
+
+export const searchUsersSchema = z.object({
+  query: z.object({
+    q: z.string().min(1),
+    limit: z.string().optional()
+  })
+});
