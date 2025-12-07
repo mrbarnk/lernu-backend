@@ -13,6 +13,7 @@ export const serializeUser = (user: Partial<UserDocument> & { _id: Types.ObjectI
   username: (user as UserDocument).username,
   displayName: (user as UserDocument).displayName,
   avatar: (user as UserDocument).avatar,
+  coverPhoto: (user as UserDocument).coverPhoto,
   bio: (user as UserDocument).bio,
   joinedAt: (user as UserDocument).joinedAt,
   level: (user as UserDocument).level,

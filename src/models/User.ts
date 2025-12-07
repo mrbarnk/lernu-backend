@@ -9,6 +9,7 @@ export interface UserAttrs {
   displayName: string;
   password: string;
   avatar?: string;
+  coverPhoto?: string;
   bio?: string;
   level?: number;
   isOnline?: boolean;
@@ -28,6 +29,7 @@ const userSchema = new Schema<UserDocument>(
     displayName: { type: String, required: true, trim: true },
     password: { type: String, required: true, select: false },
     avatar: String,
+    coverPhoto: String,
     bio: { type: String, maxlength: 280 },
     level: { type: Number, default: 1 },
     isOnline: { type: Boolean, default: false },

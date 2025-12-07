@@ -7,7 +7,7 @@ import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagi
 import { serializePost, serializeUser } from "../utils/serializers";
 
 const authorProjection =
-  "email username displayName avatar bio joinedAt level isOnline role";
+  "email username displayName avatar coverPhoto bio joinedAt level isOnline role";
 
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);

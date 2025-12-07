@@ -870,6 +870,7 @@ components:
         username: { type: string }
         displayName: { type: string }
         avatar: { type: string }
+        coverPhoto: { type: string }
         bio: { type: string }
         joinedAt: { type: string, format: date-time }
         level: { type: integer }
@@ -880,6 +881,7 @@ components:
       properties:
         bio: { type: string, maxLength: 280 }
         avatar: { type: string, format: uri }
+        coverPhoto: { type: string, format: uri }
 
     Category:
       type: object

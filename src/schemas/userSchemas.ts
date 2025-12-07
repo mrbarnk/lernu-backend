@@ -8,6 +8,7 @@ export const updateUserSchema = z.object({
   params: z.object({ id: z.string() }),
   body: z.object({
     bio: z.string().max(280).optional(),
-    avatar: z.string().url().optional()
+    avatar: z.string().url().optional(),
+    coverPhoto: z.string().url().optional()
   })
 });
