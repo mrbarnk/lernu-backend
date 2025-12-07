@@ -8,9 +8,11 @@ import userRoutes from "./users";
 import statsRoutes from "./stats";
 import uploadRoutes from "./uploads";
 import docsRoutes from "./docs";
+import sitemapRoutes from "./sitemap";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
+  app.use(sitemapRoutes);
   app.use("/auth", authRoutes);
   app.use("/categories", categoryRoutes);
   app.use("/posts", postRoutes);

@@ -27,6 +27,7 @@ export interface PostDocument extends Document, PostAttrs {
   bookmarkedBy: Types.ObjectId[];
   isEdited: boolean;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 const codeSchema = new Schema<CodeBlock>(

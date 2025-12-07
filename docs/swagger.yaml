@@ -724,6 +724,18 @@ paths:
                 postsToday: 34
                 questionsSolved: 8
 
+  /sitemap.xml:
+    get:
+      summary: Sitemap XML of posts
+      description: Returns up to 5000 most recent posts with title slugs.
+      responses:
+        "200":
+          description: XML sitemap
+          content:
+            application/xml:
+              schema:
+                type: string
+
   /uploads/images:
     post:
       summary: Upload images (up to 4)
