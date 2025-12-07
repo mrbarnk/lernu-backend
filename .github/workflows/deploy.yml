@@ -1,0 +1,53 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package artifact
+        run: tar -czf artifact.tar.gz dist package*.json docs
+
+      - name: Upload to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "artifact.tar.gz"
+          target: "/tmp/lernu-backend"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            APP_DIR=${APP_DIR:-/var/www/lernu-backend}
+            mkdir -p "$APP_DIR"
+            tar -xzf /tmp/lernu-backend/artifact.tar.gz -C "$APP_DIR"
+            cd "$APP_DIR"
+            npm ci --omit=dev
+            pm2 restart lernu-backend || pm2 start dist/server.js --name lernu-backend

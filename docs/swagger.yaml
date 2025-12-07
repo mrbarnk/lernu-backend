@@ -1,0 +1,1069 @@
+openapi: 3.0.3
+info:
+  title: lernu.io Forum API
+  version: "1.0.0"
+  description: >
+    Express + MongoDB backend for forum posts, comments, reactions, notifications, and auth.
+servers:
+  - url: http://localhost:4001
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+              example: { "status": "ok" }
+
+  /auth/signup:
+    post:
+      summary: Create account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            example:
+              email: jane@example.com
+              password: secret123
+              username: janedoe
+              displayName: Jane Doe
+      responses:
+        "200":
+          description: Signed up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: jane@example.com
+              password: secret123
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+  /auth/me:
+    get:
+      summary: Current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+  /auth/logout:
+    post:
+      summary: Logout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Logged out" }
+
+  /categories:
+    get:
+      summary: List categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items: { $ref: '#/components/schemas/Category' }
+              example:
+                categories:
+                  - id: 66fbc3aa0f1b8d001232abcd
+                    name: Questions
+                    icon: "❓"
+                    color: "#f97316"
+
+  /posts:
+    get:
+      summary: List feed (cursor paginated)
+      parameters:
+        - in: query
+          name: categoryId
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Posts page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPage'
+              example:
+                items:
+                  - $ref: '#/components/examples/PostExample'
+                nextCursor: "2025-12-07T13:01:00.123Z"
+    post:
+      summary: Create post
+      description: "Send image URLs returned from /uploads/images (do not embed base64)."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreateRequest'
+            example:
+              title: "How to center a div?"
+              content: "I can't get flex to work. Any tips?"
+              categoryId: 66fbc3aa0f1b8d001232abcd
+              tags: ["css", "help"]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+  /posts/trending:
+    get:
+      summary: Trending posts
+      parameters:
+        - in: query
+          name: window
+          schema: { type: string, example: "24h" }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 3 }
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Trending
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+  /posts/{id}:
+    get:
+      summary: Get post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpdateRequest'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      summary: Delete post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Post deleted" }
+        "403":
+          $ref: '#/components/responses/Forbidden'
+  /posts/{id}/like:
+    post:
+      summary: Like post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+    delete:
+      summary: Unlike post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unliked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+  /posts/{id}/bookmark:
+    post:
+      summary: Bookmark post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bookmarked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+    delete:
+      summary: Remove bookmark
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unbookmarked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+  /posts/{id}/share:
+    post:
+      summary: Increment share count
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Shared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+  /posts/{id}/report:
+    post:
+      summary: Report post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Reported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Report submitted" }
+
+  /posts/{id}/comments:
+    get:
+      summary: List comments on post
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+  /comments:
+    post:
+      summary: Create comment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+            example:
+              postId: 66fbc3aa0f1b8d001232abcd
+              content: "You can center with justify-content: center"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+  /comments/{id}:
+    patch:
+      summary: Update comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdateRequest'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+    delete:
+      summary: Delete comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Comment deleted" }
+  /comments/{id}/like:
+    post:
+      summary: Like comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+    delete:
+      summary: Unlike comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unliked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+  /comments/{id}/accept:
+    post:
+      summary: Accept comment as solution
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+  /comments/{id}/report:
+    post:
+      summary: Report comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Reported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Report submitted" }
+
+  /notifications:
+    get:
+      summary: List notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: unreadOnly
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+  /notifications/{id}/read:
+    post:
+      summary: Mark notification read
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Notification read" }
+  /notifications/read-all:
+    post:
+      summary: Mark all notifications read
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "All notifications read" }
+
+  /users/{id}:
+    get:
+      summary: User profile + recent posts
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  recentPosts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+    patch:
+      summary: Update user (self or admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+  /users/{id}/posts:
+    get:
+      summary: Posts by user (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPage'
+
+  /stats/community:
+    get:
+      summary: Community stats for sidebar
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityStats'
+              example:
+                activeOnline: 12
+                postsToday: 34
+                questionsSolved: 8
+
+  /uploads/images:
+    post:
+      summary: Upload images (up to 4)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+  /uploads/profile:
+    post:
+      summary: Upload profile picture
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+  /uploads/cover:
+    post:
+      summary: Upload cover photo
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: { "message": "Authentication required" }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: { "message": "Forbidden" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: { "message": "Not found" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+    SignupRequest:
+      type: object
+      required: [email, password, username, displayName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 6 }
+        username: { type: string, minLength: 3 }
+        displayName: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 6 }
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        tokens:
+          $ref: '#/components/schemas/AuthTokens'
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        avatar: { type: string }
+        bio: { type: string }
+        joinedAt: { type: string, format: date-time }
+        level: { type: integer }
+        isOnline: { type: boolean }
+        role: { type: string, enum: [user, moderator, admin] }
+    UserUpdateRequest:
+      type: object
+      properties:
+        bio: { type: string, maxLength: 280 }
+        avatar: { type: string, format: uri }
+
+    Category:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        icon: { type: string }
+        color: { type: string }
+
+    CodeBlock:
+      type: object
+      properties:
+        language: { type: string }
+        snippet: { type: string }
+
+    Post:
+      type: object
+      properties:
+        id: { type: string }
+        author: { $ref: '#/components/schemas/User' }
+        categoryId: { type: string }
+        title: { type: string }
+        content: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        tags:
+          type: array
+          items: { type: string }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        isPinned: { type: boolean }
+        isSolved: { type: boolean }
+        isEdited: { type: boolean }
+        isLiked: { type: boolean }
+        isBookmarked: { type: boolean }
+    PostCreateRequest:
+      type: object
+      required: [content, categoryId]
+      properties:
+        title: { type: string }
+        content: { type: string }
+        categoryId: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string, format: uri }
+          maxItems: 4
+        tags:
+          type: array
+          items: { type: string }
+          maxItems: 5
+    PostUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        categoryId: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string, format: uri }
+        tags:
+          type: array
+          items: { type: string }
+        isPinned: { type: boolean }
+        isSolved: { type: boolean }
+
+    Comment:
+      type: object
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        author: { $ref: '#/components/schemas/User' }
+        content: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        likes: { type: integer }
+        isLiked: { type: boolean }
+        isAccepted: { type: boolean }
+        isEdited: { type: boolean }
+    CommentCreateRequest:
+      type: object
+      required: [postId, content]
+      properties:
+        postId: { type: string }
+        content: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string, format: uri }
+          maxItems: 4
+    CommentUpdateRequest:
+      type: object
+      properties:
+        content: { type: string }
+        code: { $ref: '#/components/schemas/CodeBlock' }
+        images:
+          type: array
+          items: { type: string, format: uri }
+        isAccepted: { type: boolean }
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [like, comment, mention] }
+        actor: { $ref: '#/components/schemas/User' }
+        postId: { type: string }
+        postTitle: { type: string }
+        createdAt: { type: string, format: date-time }
+        isRead: { type: boolean }
+
+    CommunityStats:
+      type: object
+      properties:
+        activeOnline: { type: integer }
+        postsToday: { type: integer }
+        questionsSolved: { type: integer }
+
+    UploadResponse:
+      type: object
+      properties:
+        urls:
+          type: array
+          items: { type: string }
+
+    PostPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Post' }
+        nextCursor:
+          type: string
+          nullable: true
+    CommentPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        nextCursor:
+          type: string
+          nullable: true
+    NotificationPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        nextCursor:
+          type: string
+          nullable: true
+
+  examples:
+    PostExample:
+      id: 66fbc3aa0f1b8d001232abcd
+      author:
+        id: 66fbc3990f1b8d001232aaaa
+        username: janedoe
+        displayName: Jane Doe
+        avatar: https://example.com/avatar.jpg
+        bio: "Frontend learner"
+        joinedAt: "2024-05-01T10:00:00.000Z"
+        level: 3
+        isOnline: true
+        role: user
+      categoryId: 66fbc3aa0f1b8d001232abcd
+      title: "How to center a div?"
+      content: "I can't get flex to work. Any tips?"
+      createdAt: "2025-12-07T12:55:00.000Z"
+      tags: ["css", "help"]
+      likes: 5
+      comments: 2
+      shares: 0
+      isPinned: false
+      isSolved: false
+      isEdited: false
+      isLiked: true
+      isBookmarked: false

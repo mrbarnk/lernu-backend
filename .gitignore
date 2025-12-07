@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+uploads
+npm-debug.log
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.dll
+$RECYCLE.BIN/
+*.lnk
