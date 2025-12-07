@@ -9,7 +9,7 @@ import { serializePost } from "../utils/serializers";
 import { notifyMentions, notifyUser } from "../services/notificationService";
 
 const authorProjection =
-  "email username displayName avatar coverPhoto bio joinedAt level isOnline role";
+  "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
 
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
@@ -37,7 +37,7 @@ export const listPosts = async (req: Request, res: Response) => {
     .lean();
 
   res.json({
-    items: posts.map((post) => serializePost(post as any, req.user?._id)),
+    items: posts.map((post) => serializePost(post as any, req.user?._id, { excerptLength: 240 })),
     nextCursor: getNextCursor(posts as any, limit)
   });
 };
@@ -67,7 +67,7 @@ export const trendingPosts = async (req: Request, res: Response) => {
     .slice(0, limit);
 
   res.json({
-    items: ranked.map((post) => serializePost(post as any, req.user?._id))
+    items: ranked.map((post) => serializePost(post as any, req.user?._id, { excerptLength: 240 }))
   });
 };
 

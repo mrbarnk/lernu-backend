@@ -9,7 +9,7 @@ import { serializeComment } from "../utils/serializers";
 import { notifyMentions, notifyUser } from "../services/notificationService";
 
 const authorProjection =
-  "email username displayName avatar coverPhoto bio joinedAt level isOnline role";
+  "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
 
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);

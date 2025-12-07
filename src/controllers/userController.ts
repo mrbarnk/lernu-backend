@@ -7,7 +7,7 @@ import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagi
 import { serializePost, serializeUser } from "../utils/serializers";
 
 const authorProjection =
-  "email username displayName avatar coverPhoto bio joinedAt level isOnline role";
+  "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
 
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
@@ -25,8 +25,8 @@ export const getUserProfile = async (req: Request, res: Response) => {
     .lean();
 
   res.json({
-    user: serializeUser(user),
-    recentPosts: recentPosts.map((p) => serializePost(p as any, req.user?._id))
+    user: serializeUser(user, req.user?._id),
+    recentPosts: recentPosts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 200 }))
   });
 };
 
@@ -42,7 +42,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
     .lean();
 
   res.json({
-    items: posts.map((p) => serializePost(p as any, req.user?._id)),
+    items: posts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 240 })),
     nextCursor: getNextCursor(posts as any, limit)
   });
 };
@@ -56,7 +56,7 @@ export const updateUser = async (req: Request, res: Response) => {
 
   const user = await User.findByIdAndUpdate(userId, req.body, { new: true });
   if (!user) throw new HttpError(404, "User not found");
-  res.json({ user: serializeUser(user) });
+  res.json({ user: serializeUser(user, req.user._id) });
 };
 
 export const searchUsers = async (req: Request, res: Response) => {
@@ -72,6 +72,48 @@ export const searchUsers = async (req: Request, res: Response) => {
     .lean();
 
   res.json({
-    users: users.map((u) => serializeUser(u as any))
+    users: users.map((u) => serializeUser(u as any, req.user?._id))
   });
+};
+
+export const followUser = async (req: Request, res: Response) => {
+  ensureValidObjectId(req.params.id, "Invalid user id");
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  if (req.user._id.toString() === req.params.id) {
+    throw new HttpError(400, "Cannot follow yourself");
+  }
+
+  const target = await User.findById(req.params.id);
+  if (!target) throw new HttpError(404, "User not found");
+
+  const followers = target.followers as Types.Array<Types.ObjectId>;
+  followers.addToSet(req.user._id);
+  await target.save();
+
+  const currentFollowing = req.user.following as Types.Array<Types.ObjectId>;
+  currentFollowing.addToSet(target._id);
+  await req.user.save();
+
+  res.json({ user: serializeUser(target, req.user._id) });
+};
+
+export const unfollowUser = async (req: Request, res: Response) => {
+  ensureValidObjectId(req.params.id, "Invalid user id");
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  if (req.user._id.toString() === req.params.id) {
+    throw new HttpError(400, "Cannot unfollow yourself");
+  }
+
+  const target = await User.findById(req.params.id);
+  if (!target) throw new HttpError(404, "User not found");
+
+  const followers = target.followers as Types.Array<Types.ObjectId>;
+  followers.pull(req.user._id);
+  await target.save();
+
+  const currentFollowing = req.user.following as Types.Array<Types.ObjectId>;
+  currentFollowing.pull(target._id);
+  await req.user.save();
+
+  res.json({ user: serializeUser(target, req.user._id) });
 };

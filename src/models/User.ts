@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { Document, Model, Schema, model } from "mongoose";
+import { Document, Model, Schema, Types, model } from "mongoose";
 
 export type UserRole = "user" | "moderator" | "admin";
 
@@ -19,6 +19,8 @@ export interface UserAttrs {
 
 export interface UserDocument extends Document, UserAttrs {
   refreshTokens?: string[];
+  followers: Types.Array<Types.ObjectId>;
+  following: Types.Array<Types.ObjectId>;
   comparePassword(candidate: string): Promise<boolean>;
 }
 
@@ -35,6 +37,8 @@ const userSchema = new Schema<UserDocument>(
     isOnline: { type: Boolean, default: false },
     role: { type: String, enum: ["user", "moderator", "admin"], default: "user" },
     joinedAt: { type: Date, default: Date.now },
+    followers: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: Schema.Types.ObjectId, ref: "User" }],
     refreshTokens: [{ type: String }]
   },
   {

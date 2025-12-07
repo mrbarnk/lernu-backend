@@ -8,7 +8,13 @@ import { formatDisplayTime } from "./date";
 const toId = (value: unknown) =>
   value instanceof Types.ObjectId ? value.toString() : (value as string);
 
-export const serializeUser = (user: Partial<UserDocument> & { _id: Types.ObjectId | string }) => ({
+const hasId = (value: unknown, match?: Types.ObjectId) =>
+  !!match && Array.isArray(value) && value.some((id) => toId(id) === match.toString());
+
+export const serializeUser = (
+  user: Partial<UserDocument> & { _id: Types.ObjectId | string },
+  currentUserId?: Types.ObjectId
+) => ({
   id: toId(user._id),
   email: (user as UserDocument).email,
   username: (user as UserDocument).username,
@@ -19,24 +25,35 @@ export const serializeUser = (user: Partial<UserDocument> & { _id: Types.ObjectI
   joinedAt: (user as UserDocument).joinedAt,
   level: (user as UserDocument).level,
   isOnline: (user as UserDocument).isOnline,
-  role: (user as UserDocument).role
+  role: (user as UserDocument).role,
+  followerCount: Array.isArray((user as UserDocument).followers)
+    ? (user as UserDocument).followers.length
+    : undefined,
+  isFollowing: hasId((user as UserDocument).followers, currentUserId)
 });
 
 const hasUserId = (value: unknown, userId?: Types.ObjectId) =>
   !!userId && Array.isArray(value) && value.some((id) => toId(id) === userId.toString());
 
+const makeExcerpt = (text?: string, length = 200) => {
+  if (!text) return text;
+  if (text.length <= length) return text;
+  return `${text.slice(0, length).trimEnd()}…`;
+};
+
 export const serializePost = (
   post: Partial<PostDocument> & { _id: Types.ObjectId },
-  currentUserId?: Types.ObjectId
+  currentUserId?: Types.ObjectId,
+  options?: { excerptLength?: number }
 ) => ({
   id: toId(post._id),
   author:
     typeof post.author === "object" && post.author
-      ? serializeUser(post.author as unknown as UserDocument)
+      ? serializeUser(post.author as unknown as UserDocument, currentUserId)
       : undefined,
   categoryId: post.categoryId ? toId(post.categoryId as Types.ObjectId) : undefined,
   title: post.title,
-  content: post.content,
+  content: options?.excerptLength ? makeExcerpt(post.content, options.excerptLength) : post.content,
   code: post.code,
   images: post.images ?? [],
   createdAt: post.createdAt,

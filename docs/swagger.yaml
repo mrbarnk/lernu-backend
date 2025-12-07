@@ -731,6 +731,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PostPage'
+  /users/{id}/follow:
+    post:
+      summary: Follow a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Followed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+    delete:
+      summary: Unfollow a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unfollowed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
 
   /stats/community:
     get:
@@ -911,6 +950,8 @@ components:
         level: { type: integer }
         isOnline: { type: boolean }
         role: { type: string, enum: [user, moderator, admin] }
+        followerCount: { type: integer }
+        isFollowing: { type: boolean }
     UserUpdateRequest:
       type: object
       properties:
