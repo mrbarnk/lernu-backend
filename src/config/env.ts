@@ -17,7 +17,7 @@ export const env = {
   jwtSecret: get("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   refreshExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN ?? "30d",
-  clientUrl: process.env.CLIENT_URL ?? "http://localhost:3000",
+  clientUrl: "https://lernu.io",
   uploadDir: process.env.UPLOAD_DIR ?? "./uploads",
   r2Endpoint: get("R2_ENDPOINT"),
   r2AccessKey: get("R2_ACCESS_KEY"),
