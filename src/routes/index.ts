@@ -10,6 +10,7 @@ import uploadRoutes from "./uploads";
 import docsRoutes from "./docs";
 import sitemapRoutes from "./sitemap";
 import searchRoutes from "./search";
+import reelRoutes from "./reels";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
@@ -17,6 +18,7 @@ export const registerRoutes = (app: Express) => {
   app.use(searchRoutes);
   app.use("/auth", authRoutes);
   app.use("/categories", categoryRoutes);
+  app.use("/reels", reelRoutes);
   app.use("/posts", postRoutes);
   app.use(commentRoutes);
   app.use("/notifications", notificationRoutes);

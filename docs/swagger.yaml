@@ -420,6 +420,199 @@ paths:
                     type: string
               example: { "message": "Report submitted" }
 
+  /reels:
+    get:
+      summary: List reels (cursor paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reels page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reel'
+                  nextCursor:
+                    type: string
+                    nullable: true
+    post:
+      summary: Create reel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReelCreateRequest'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+  /reels/{id}:
+    get:
+      summary: Get reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+    patch:
+      summary: Update reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReelUpdateRequest'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+    delete:
+      summary: Delete reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example: { "message": "Reel deleted" }
+  /reels/{id}/like:
+    post:
+      summary: Like reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+    delete:
+      summary: Unlike reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unliked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+  /reels/{id}/bookmark:
+    post:
+      summary: Bookmark reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bookmarked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+    delete:
+      summary: Unbookmark reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unbookmarked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
+
   /posts/{id}/comments:
     get:
       summary: List comments on post
@@ -1157,6 +1350,51 @@ components:
         isLiked: { type: boolean }
         isAccepted: { type: boolean }
         isEdited: { type: boolean }
+    Reel:
+      type: object
+      properties:
+        id: { type: string }
+        author: { $ref: '#/components/schemas/User' }
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        thumbnail: { type: string }
+        durationSeconds: { type: number }
+        tags:
+          type: array
+          items: { type: string }
+        likes: { type: integer }
+        shares: { type: integer }
+        comments: { type: integer }
+        isLiked: { type: boolean }
+        isBookmarked: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        displayTime: { type: string }
+    ReelCreateRequest:
+      type: object
+      required: [videoUrl]
+      properties:
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        thumbnail: { type: string }
+        durationSeconds: { type: number }
+        tags:
+          type: array
+          items: { type: string }
+          maxItems: 5
+    ReelUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        thumbnail: { type: string }
+        durationSeconds: { type: number }
+        tags:
+          type: array
+          items: { type: string }
+          maxItems: 5
     CommentCreateRequest:
       type: object
       required: [postId, content]

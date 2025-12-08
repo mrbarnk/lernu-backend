@@ -33,6 +33,7 @@ export const getSitemap = async (_req: Request, res: Response) => {
   const urls = posts.map((post) => {
     const slug = post.title ? slugify(post.title) : post._id.toString();
     const loc = `${base}${generatePostUrl({
+      title: post.title,
       id: post._id.toString(),
       content: post.content || '',
       createdAt: post.createdAt.toString(),
