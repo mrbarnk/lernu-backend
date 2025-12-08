@@ -43,3 +43,9 @@ export const cursorSchema = z.object({
     search: z.string().optional()
   })
 });
+
+export const trendingTagsSchema = z.object({
+  query: z.object({
+    limit: z.string().optional()
+  })
+});

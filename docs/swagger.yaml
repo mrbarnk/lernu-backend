@@ -200,6 +200,30 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Post'
+  /posts/trending/tags:
+    get:
+      summary: Trending tags (topics)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10, maximum: 25 }
+      responses:
+        "200":
+          description: Trending tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag:
+                          type: string
+                        count:
+                          type: integer
   /posts/{id}:
     get:
       summary: Get post

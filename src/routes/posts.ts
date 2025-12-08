@@ -9,18 +9,25 @@ import {
   reportPost,
   sharePost,
   trendingPosts,
+  trendingTags,
   unbookmarkPost,
   unlikePost,
   updatePost
 } from "../controllers/postController";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
-import { createPostSchema, cursorSchema, updatePostSchema } from "../schemas/postSchemas";
+import {
+  createPostSchema,
+  cursorSchema,
+  trendingTagsSchema,
+  updatePostSchema
+} from "../schemas/postSchemas";
 
 const router = Router();
 
 router.get("/", optionalAuth, validate(cursorSchema), listPosts);
 router.get("/trending", optionalAuth, trendingPosts);
+router.get("/trending/tags", trendingTags);
 router.get("/:id", optionalAuth, getPost);
 router.post("/", requireAuth, validate(createPostSchema), createPost);
 router.patch("/:id", requireAuth, validate(updatePostSchema), updatePost);

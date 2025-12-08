@@ -71,6 +71,20 @@ export const trendingPosts = async (req: Request, res: Response) => {
   });
 };
 
+export const trendingTags = async (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query.limit) || 10, 25);
+  const tags = await Post.aggregate([
+    { $unwind: "$tags" },
+    { $group: { _id: { $toLower: "$tags" }, count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: limit }
+  ]);
+
+  res.json({
+    topics: tags.map((t) => ({ tag: t._id, count: t.count }))
+  });
+};
+
 export const getPost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id)
