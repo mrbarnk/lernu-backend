@@ -7,6 +7,7 @@ export interface CommentAttrs {
   content: string;
   code?: CodeBlock;
   images?: string[];
+  parentId?: Types.ObjectId | null;
 }
 
 export interface CommentDocument extends Document, CommentAttrs {
@@ -14,6 +15,7 @@ export interface CommentDocument extends Document, CommentAttrs {
   likedBy: Types.ObjectId[];
   isAccepted: boolean;
   isEdited: boolean;
+  repliesCount: number;
   createdAt: Date;
 }
 
@@ -35,8 +37,10 @@ const commentSchema = new Schema<CommentDocument>(
       type: [String],
       validate: [(val: unknown[]) => !val || val.length <= 4, "Too many images"]
     },
+    parentId: { type: Schema.Types.ObjectId, ref: "Comment", default: null },
     likes: { type: Number, default: 0 },
     likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    repliesCount: { type: Number, default: 0 },
     isAccepted: { type: Boolean, default: false },
     isEdited: { type: Boolean, default: false }
   },

@@ -636,6 +636,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommentPage'
+  /comments/{id}/replies:
+    get:
+      summary: List replies for a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Replies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
   /comments:
     post:
       summary: Create comment
@@ -1347,6 +1370,8 @@ components:
         createdAt: { type: string, format: date-time }
         displayTime: { type: string, description: "Human friendly relative time (up to 3 days) or date" }
         likes: { type: integer }
+        parentId: { type: string, nullable: true }
+        repliesCount: { type: integer }
         isLiked: { type: boolean }
         isAccepted: { type: boolean }
         isEdited: { type: boolean }
@@ -1406,6 +1431,7 @@ components:
           type: array
           items: { type: string, format: uri }
           maxItems: 4
+        parentId: { type: string }
     CommentUpdateRequest:
       type: object
       properties:

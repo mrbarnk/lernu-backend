@@ -14,7 +14,8 @@ export const createCommentSchema = z.object({
     postId: z.string(),
     content: z.string().min(1),
     code: codeSchema,
-    images: imagesSchema
+    images: imagesSchema,
+    parentId: z.string().optional()
   })
 });
 
@@ -29,6 +30,14 @@ export const updateCommentSchema = z.object({
 });
 
 export const commentsCursorSchema = z.object({
+  query: z.object({
+    cursor: z.string().optional(),
+    limit: z.string().optional()
+  })
+});
+
+export const commentRepliesSchema = z.object({
+  params: z.object({ id: z.string() }),
   query: z.object({
     cursor: z.string().optional(),
     limit: z.string().optional()

@@ -22,7 +22,11 @@ const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
 export const getComments = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   ensureValidObjectId(req.params.id, "Invalid post");
-  const filter = { postId: new Types.ObjectId(req.params.id), ...buildCursorFilter(cursor) };
+  const filter = {
+    postId: new Types.ObjectId(req.params.id),
+    parentId: null,
+    ...buildCursorFilter(cursor)
+  };
 
   const comments = await Comment.find(filter)
     .sort({ createdAt: -1 })
@@ -37,22 +41,35 @@ export const getComments = async (req: Request, res: Response) => {
 };
 
 export const createComment = async (req: Request, res: Response) => {
-  const { postId, content, code, images } = req.body;
+  const { postId, content, code, images, parentId } = req.body;
   if (!req.user) throw new HttpError(401, "Authentication required");
 
   ensureValidObjectId(postId, "Invalid post");
   const post = await Post.findById(postId);
   if (!post) throw new HttpError(404, "Post not found");
 
+  let parentComment = null;
+  if (parentId) {
+    ensureValidObjectId(parentId, "Invalid parent comment");
+    parentComment = await Comment.findById(parentId);
+    if (!parentComment) throw new HttpError(404, "Parent comment not found");
+    if (!parentComment.postId.equals(postId)) throw new HttpError(400, "Parent comment mismatch");
+  }
+
   const comment = await Comment.create({
     postId,
     content,
     code,
     images,
+    parentId: parentId ?? null,
     author: req.user._id
   });
 
   await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+  if (parentComment) {
+    parentComment.repliesCount = (parentComment.repliesCount ?? 0) + 1;
+    await parentComment.save();
+  }
 
   await notifyUser({
     userId: post.author as any,
@@ -102,6 +119,9 @@ export const deleteComment = async (req: Request, res: Response) => {
 
   await comment.deleteOne();
   await Post.findByIdAndUpdate(comment.postId, { $inc: { commentsCount: -1 } });
+  if (comment.parentId) {
+    await Comment.findByIdAndUpdate(comment.parentId, { $inc: { repliesCount: -1 } });
+  }
   res.json({ message: "Comment deleted" });
 };
 
@@ -169,4 +189,24 @@ export const reportComment = async (req: Request, res: Response) => {
     reason: req.body?.reason
   });
   res.status(201).json({ message: "Report submitted" });
+};
+
+export const getCommentReplies = async (req: Request, res: Response) => {
+  ensureValidObjectId(req.params.id, "Invalid comment id");
+  const { limit, cursor } = parsePagination(req.query, 10, 50);
+  const filter = {
+    parentId: new Types.ObjectId(req.params.id),
+    ...buildCursorFilter(cursor)
+  };
+
+  const replies = await Comment.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate("author", authorProjection)
+    .lean();
+
+  res.json({
+    items: replies.map((reply) => serializeComment(reply as any, req.user?._id)),
+    nextCursor: getNextCursor(replies as any, limit)
+  });
 };

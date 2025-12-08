@@ -4,6 +4,7 @@ import {
   createComment,
   deleteComment,
   getComments,
+  getCommentReplies,
   likeComment,
   reportComment,
   unlikeComment,
@@ -11,12 +12,18 @@ import {
 } from "../controllers/commentController";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
-import { commentsCursorSchema, createCommentSchema, updateCommentSchema } from "../schemas/commentSchemas";
+import {
+  commentRepliesSchema,
+  commentsCursorSchema,
+  createCommentSchema,
+  updateCommentSchema
+} from "../schemas/commentSchemas";
 
 const router = Router();
 
 router.get("/posts/:id/comments", optionalAuth, validate(commentsCursorSchema), getComments);
 router.post("/comments", requireAuth, validate(createCommentSchema), createComment);
+router.get("/comments/:id/replies", optionalAuth, validate(commentRepliesSchema), getCommentReplies);
 router.patch("/comments/:id", requireAuth, validate(updateCommentSchema), updateComment);
 router.delete("/comments/:id", requireAuth, deleteComment);
 router.post("/comments/:id/like", requireAuth, likeComment);

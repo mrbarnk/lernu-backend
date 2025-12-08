@@ -87,6 +87,8 @@ export const serializeComment = (
   displayTime: comment.createdAt ? formatDisplayTime(new Date(comment.createdAt)) : undefined,
   likes: comment.likes ?? (comment.likedBy ? (comment.likedBy as Types.ObjectId[]).length : 0),
   isLiked: hasUserId(comment.likedBy, currentUserId),
+  parentId: comment.parentId ? toId(comment.parentId as Types.ObjectId) : null,
+  repliesCount: (comment as any).repliesCount ?? 0,
   isAccepted: comment.isAccepted ?? false,
   isEdited: comment.isEdited ?? false
 });
