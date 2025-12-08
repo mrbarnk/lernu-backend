@@ -10,12 +10,14 @@ import {
   unlikeComment,
   updateComment
 } from "../controllers/commentController";
+import { addReelComment, getReelComments } from "../controllers/reelCommentController";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import {
   commentRepliesSchema,
   commentsCursorSchema,
   createCommentSchema,
+  createReelCommentSchema,
   updateCommentSchema
 } from "../schemas/commentSchemas";
 
@@ -23,6 +25,8 @@ const router = Router();
 
 router.get("/posts/:id/comments", optionalAuth, validate(commentsCursorSchema), getComments);
 router.post("/comments", requireAuth, validate(createCommentSchema), createComment);
+router.get("/reels/:id/comments", optionalAuth, validate(commentsCursorSchema), getReelComments);
+router.post("/reels/:id/comments", requireAuth, validate(createReelCommentSchema), addReelComment);
 router.get("/comments/:id/replies", optionalAuth, validate(commentRepliesSchema), getCommentReplies);
 router.patch("/comments/:id", requireAuth, validate(updateCommentSchema), updateComment);
 router.delete("/comments/:id", requireAuth, deleteComment);

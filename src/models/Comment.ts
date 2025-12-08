@@ -2,7 +2,8 @@ import { Document, Model, Schema, Types, model } from "mongoose";
 import { CodeBlock } from "./Post";
 
 export interface CommentAttrs {
-  postId: Types.ObjectId;
+  postId?: Types.ObjectId;
+  reelId?: Types.ObjectId;
   author: Types.ObjectId;
   content: string;
   code?: CodeBlock;
@@ -29,7 +30,8 @@ const codeSchema = new Schema<CodeBlock>(
 
 const commentSchema = new Schema<CommentDocument>(
   {
-    postId: { type: Schema.Types.ObjectId, ref: "Post", required: true },
+    postId: { type: Schema.Types.ObjectId, ref: "Post" },
+    reelId: { type: Schema.Types.ObjectId, ref: "Reel" },
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     content: { type: String, required: true },
     code: codeSchema,

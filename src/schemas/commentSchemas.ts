@@ -10,13 +10,18 @@ const codeSchema = z
 const imagesSchema = z.array(z.string().url()).max(4).optional();
 
 export const createCommentSchema = z.object({
-  body: z.object({
-    postId: z.string(),
-    content: z.string().min(1),
-    code: codeSchema,
-    images: imagesSchema,
-    parentId: z.string().optional()
-  })
+  body: z
+    .object({
+      postId: z.string().optional(),
+      reelId: z.string().optional(),
+      content: z.string().min(1),
+      code: codeSchema,
+      images: imagesSchema,
+      parentId: z.string().optional()
+    })
+    .refine((val) => val.postId || val.reelId, {
+      message: "Either postId or reelId is required"
+    })
 });
 
 export const updateCommentSchema = z.object({
@@ -41,5 +46,15 @@ export const commentRepliesSchema = z.object({
   query: z.object({
     cursor: z.string().optional(),
     limit: z.string().optional()
+  })
+});
+
+export const createReelCommentSchema = z.object({
+  params: z.object({ id: z.string() }),
+  body: z.object({
+    content: z.string().min(1),
+    code: codeSchema,
+    images: imagesSchema,
+    parentId: z.string().optional()
   })
 });

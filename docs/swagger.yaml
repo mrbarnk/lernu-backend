@@ -683,6 +683,54 @@ paths:
                 properties:
                   comment:
                     $ref: '#/components/schemas/Comment'
+  /reels/{id}/comments:
+    get:
+      summary: List comments on reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Reel comments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+    post:
+      summary: Add comment to reel
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
   /comments/{id}:
     patch:
       summary: Update comment
@@ -1361,6 +1409,7 @@ components:
       properties:
         id: { type: string }
         postId: { type: string }
+        reelId: { type: string }
         author: { $ref: '#/components/schemas/User' }
         content: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
@@ -1422,9 +1471,10 @@ components:
           maxItems: 5
     CommentCreateRequest:
       type: object
-      required: [postId, content]
+      required: [content]
       properties:
         postId: { type: string }
+        reelId: { type: string }
         content: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
         images:

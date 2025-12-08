@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
+import { Reel } from "../models/Reel";
 import { Report } from "../models/Report";
 import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
@@ -44,20 +45,39 @@ export const createComment = async (req: Request, res: Response) => {
   const { postId, content, code, images, parentId } = req.body;
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  ensureValidObjectId(postId, "Invalid post");
-  const post = await Post.findById(postId);
-  if (!post) throw new HttpError(404, "Post not found");
+  if (!postId && !req.body.reelId) throw new HttpError(400, "postId or reelId required");
+
+  let post: any = null;
+  let reel: any = null;
+
+  if (postId) {
+    ensureValidObjectId(postId, "Invalid post");
+    post = await Post.findById(postId);
+    if (!post) throw new HttpError(404, "Post not found");
+  }
+
+  if (req.body.reelId) {
+    ensureValidObjectId(req.body.reelId, "Invalid reel");
+    reel = await Reel.findById(req.body.reelId);
+    if (!reel) throw new HttpError(404, "Reel not found");
+  }
 
   let parentComment = null;
   if (parentId) {
     ensureValidObjectId(parentId, "Invalid parent comment");
     parentComment = await Comment.findById(parentId);
     if (!parentComment) throw new HttpError(404, "Parent comment not found");
-    if (!parentComment.postId.equals(postId)) throw new HttpError(400, "Parent comment mismatch");
+    if (post && (!parentComment.postId || !parentComment.postId.equals(postId))) {
+      throw new HttpError(400, "Parent comment mismatch");
+    }
+    if (reel && (!parentComment.reelId || !parentComment.reelId.equals(req.body.reelId))) {
+      throw new HttpError(400, "Parent comment mismatch");
+    }
   }
 
   const comment = await Comment.create({
     postId,
+    reelId: req.body.reelId,
     content,
     code,
     images,
@@ -65,7 +85,8 @@ export const createComment = async (req: Request, res: Response) => {
     author: req.user._id
   });
 
-  await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+  if (postId) await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+  if (reel) await Reel.findByIdAndUpdate(reel._id, { $inc: { commentsCount: 1 } });
   if (parentComment) {
     parentComment.repliesCount = (parentComment.repliesCount ?? 0) + 1;
     await parentComment.save();
@@ -119,6 +140,7 @@ export const deleteComment = async (req: Request, res: Response) => {
 
   await comment.deleteOne();
   await Post.findByIdAndUpdate(comment.postId, { $inc: { commentsCount: -1 } });
+  await Reel.findByIdAndUpdate(comment.reelId, { $inc: { commentsCount: -1 } });
   if (comment.parentId) {
     await Comment.findByIdAndUpdate(comment.parentId, { $inc: { repliesCount: -1 } });
   }
