@@ -47,6 +47,39 @@ export const getUserPosts = async (req: Request, res: Response) => {
   });
 };
 
+export const getUserProfileByUsername = async (req: Request, res: Response) => {
+  const user = await User.findOne({ username: req.params.username });
+  if (!user) throw new HttpError(404, "User not found");
+
+  const recentPosts = await Post.find({ author: user._id })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate("author", authorProjection)
+    .lean();
+
+  res.json({
+    user: serializeUser(user, req.user?._id),
+    recentPosts: recentPosts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 200 }))
+  });
+};
+
+export const getUserPostsByUsername = async (req: Request, res: Response) => {
+  const user = await User.findOne({ username: req.params.username });
+  if (!user) throw new HttpError(404, "User not found");
+  const { limit, cursor } = parsePagination(req.query, 10, 50);
+
+  const posts = await Post.find({ author: user._id, ...buildCursorFilter(cursor) })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate("author", authorProjection)
+    .lean();
+
+  res.json({
+    items: posts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 240 })),
+    nextCursor: getNextCursor(posts as any, limit)
+  });
+};
+
 export const updateUser = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid user id");
   if (!req.user) throw new HttpError(401, "Authentication required");

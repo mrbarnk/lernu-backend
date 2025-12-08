@@ -19,3 +19,7 @@ export const searchUsersSchema = z.object({
     limit: z.string().optional()
   })
 });
+
+export const usernameParamSchema = z.object({
+  params: z.object({ username: z.string().min(1) })
+});

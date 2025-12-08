@@ -708,6 +708,57 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/User'
+  /users/by-username/{username}:
+    get:
+      summary: User profile by username
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  recentPosts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+        "404":
+          $ref: '#/components/responses/NotFound'
+  /users/by-username/{username}/posts:
+    get:
+      summary: Posts by username (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPage'
+        "404":
+          $ref: '#/components/responses/NotFound'
   /users/{id}/posts:
     get:
       summary: Posts by user (paginated)
@@ -770,6 +821,36 @@ paths:
                 properties:
                   user:
                     $ref: '#/components/schemas/User'
+  /search:
+    get:
+      summary: Search users and posts
+      description: Returns mixed results for the query.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10, maximum: 25 }
+      responses:
+        "200":
+          description: Results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  posts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
 
   /stats/community:
     get:
@@ -952,6 +1033,11 @@ components:
         role: { type: string, enum: [user, moderator, admin] }
         followerCount: { type: integer }
         isFollowing: { type: boolean }
+        badges:
+          type: array
+          items:
+            type: string
+            enum: [verified, platinum, gold, moderator, contributor]
     UserUpdateRequest:
       type: object
       properties:

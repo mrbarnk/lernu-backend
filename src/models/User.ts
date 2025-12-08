@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Document, Model, Schema, Types, model } from "mongoose";
 
 export type UserRole = "user" | "moderator" | "admin";
+export type BadgeType = "verified" | "platinum" | "gold" | "moderator" | "contributor";
 
 export interface UserAttrs {
   email: string;
@@ -15,6 +16,7 @@ export interface UserAttrs {
   isOnline?: boolean;
   role?: UserRole;
   joinedAt?: Date;
+  badges?: BadgeType[];
 }
 
 export interface UserDocument extends Document, UserAttrs {
@@ -37,6 +39,7 @@ const userSchema = new Schema<UserDocument>(
     isOnline: { type: Boolean, default: false },
     role: { type: String, enum: ["user", "moderator", "admin"], default: "user" },
     joinedAt: { type: Date, default: Date.now },
+    badges: [{ type: String, enum: ["verified", "platinum", "gold", "moderator", "contributor"] }],
     followers: [{ type: Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: Schema.Types.ObjectId, ref: "User" }],
     refreshTokens: [{ type: String }]
