@@ -1384,7 +1384,7 @@ components:
         id: { type: string }
         author: { $ref: '#/components/schemas/User' }
         categoryId: { type: string }
-        title: { type: string }
+        title: { type: string, nullable: true }
         content: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
         images:
@@ -1407,7 +1407,7 @@ components:
       type: object
       required: [content, categoryId]
       properties:
-        title: { type: string }
+        title: { type: string, nullable: true }
         content: { type: string }
         categoryId: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
@@ -1422,7 +1422,7 @@ components:
     PostUpdateRequest:
       type: object
       properties:
-        title: { type: string }
+        title: { type: string, nullable: true }
         content: { type: string }
         categoryId: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
