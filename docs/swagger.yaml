@@ -1531,10 +1531,13 @@ components:
       type: object
       properties:
         id: { type: string }
-        type: { type: string, enum: [like, comment, mention] }
+        type: { type: string, enum: [like, comment, mention, follow] }
         actor: { $ref: '#/components/schemas/User' }
         postId: { type: string }
+        commentId: { type: string }
         postTitle: { type: string }
+        post: { $ref: '#/components/schemas/Post' }
+        comment: { $ref: '#/components/schemas/Comment' }
         createdAt: { type: string, format: date-time }
         isRead: { type: boolean }
 

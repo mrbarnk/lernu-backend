@@ -5,6 +5,7 @@ import { User } from "../models/User";
 import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
 import { serializePost, serializeUser } from "../utils/serializers";
+import { notifyUser } from "../services/notificationService";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -120,12 +121,23 @@ export const followUser = async (req: Request, res: Response) => {
   if (!target) throw new HttpError(404, "User not found");
 
   const followers = target.followers as Types.Array<Types.ObjectId>;
+  const alreadyFollowing = followers.some((id) => id.equals(req.user!._id));
+  if (alreadyFollowing) {
+    return res.json({ user: serializeUser(target, req.user._id) });
+  }
+
   followers.addToSet(req.user._id);
   await target.save();
 
   const currentFollowing = req.user.following as Types.Array<Types.ObjectId>;
   currentFollowing.addToSet(target._id);
   await req.user.save();
+
+  await notifyUser({
+    userId: target._id,
+    actorId: req.user._id,
+    type: "follow"
+  });
 
   res.json({ user: serializeUser(target, req.user._id) });
 };

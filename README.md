@@ -31,6 +31,7 @@ TypeScript + Express + MongoDB API for posts, comments, reactions, notifications
 - Post/comment responses include user-specific flags (`isLiked`, `isBookmarked`) when an auth token is provided.
 - Moderation fields (`isPinned`, `isSolved`, comment acceptance) require `moderator` or `admin` roles.
 - Notifications are stored for likes, comments, and @mentions (`@username`), with mark-read endpoints; integrate SSE/WebSocket as needed.
+- Notification payloads include the triggering `actor` plus `post`/`comment` objects when relevant so the client can deep-link to the content; follow events surface the follower as `actor`.
 - Uploads are stored locally by default; switch to S3/R2 via `UPLOAD_DRIVER` config.
 - Reel responses include `views`, `totalWatchSeconds`, and `averageWatchSeconds`; increment with `POST /reels/:id/view` (auth optional) when playback starts/ends, passing `watchedSeconds` to capture watch time.
 - Each view call logs who watched (if authenticated), when it was watched, and how many seconds were viewed so you can build per-user counts and average watch time later.

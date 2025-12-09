@@ -9,6 +9,7 @@ interface NotifyParams {
   type: NotificationType;
   postId?: Types.ObjectId;
   postTitle?: string;
+  commentId?: Types.ObjectId;
 }
 
 export const notifyUser = async ({
@@ -16,7 +17,8 @@ export const notifyUser = async ({
   actorId,
   type,
   postId,
-  postTitle
+  postTitle,
+  commentId
 }: NotifyParams) => {
   if (!userId || userId.equals(actorId)) return;
   await Notification.create({
@@ -24,7 +26,8 @@ export const notifyUser = async ({
     actor: actorId,
     type,
     postId,
-    postTitle
+    postTitle,
+    commentId
   });
 };
 

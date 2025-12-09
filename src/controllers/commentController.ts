@@ -97,7 +97,8 @@ export const createComment = async (req: Request, res: Response) => {
     actorId: req.user._id,
     type: "comment",
     postId: post._id,
-    postTitle: post.title
+    postTitle: post.title,
+    commentId: comment._id
   });
 
   await notifyMentions(content, req.user._id, post._id, post.title || undefined);
@@ -162,7 +163,8 @@ export const likeComment = async (req: Request, res: Response) => {
     userId: comment.author as any,
     actorId: req.user._id,
     type: "like",
-    postId: comment.postId as Types.ObjectId
+    postId: comment.postId as Types.ObjectId,
+    commentId: comment._id
   });
 
   res.json({ comment: serializeComment(comment as any, req.user._id) });

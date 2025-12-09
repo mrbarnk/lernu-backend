@@ -5,6 +5,10 @@ import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagi
 import { serializeNotification } from "../utils/serializers";
 
 const actorProjection = "username displayName avatar";
+const postProjection =
+  "title content author createdAt tags likes commentsCount shares likedBy bookmarkedBy";
+const commentProjection =
+  "postId reelId content createdAt likes likedBy parentId isAccepted isEdited images code author";
 
 export const listNotifications = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
@@ -18,10 +22,20 @@ export const listNotifications = async (req: Request, res: Response) => {
     .sort({ createdAt: -1 })
     .limit(limit)
     .populate("actor", actorProjection)
+    .populate({
+      path: "postId",
+      select: postProjection,
+      populate: { path: "author", select: actorProjection }
+    })
+    .populate({
+      path: "commentId",
+      select: commentProjection,
+      populate: { path: "author", select: actorProjection }
+    })
     .lean();
 
   res.json({
-    items: notifications.map((n) => serializeNotification(n as any)),
+    items: notifications.map((n) => serializeNotification(n as any, req.user?._id)),
     nextCursor: getNextCursor(notifications as any, limit)
   });
 };

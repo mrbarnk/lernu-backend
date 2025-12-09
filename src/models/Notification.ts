@@ -1,6 +1,6 @@
 import { Document, Model, Schema, Types, model } from "mongoose";
 
-export type NotificationType = "like" | "comment" | "mention";
+export type NotificationType = "like" | "comment" | "mention" | "follow";
 
 export interface NotificationAttrs {
   user: Types.ObjectId;
@@ -8,6 +8,7 @@ export interface NotificationAttrs {
   type: NotificationType;
   postId?: Types.ObjectId;
   postTitle?: string;
+  commentId?: Types.ObjectId;
 }
 
 export interface NotificationDocument extends Document, NotificationAttrs {
@@ -19,9 +20,10 @@ const notificationSchema = new Schema<NotificationDocument>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     actor: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    type: { type: String, enum: ["like", "comment", "mention"], required: true },
+    type: { type: String, enum: ["like", "comment", "mention", "follow"], required: true },
     postId: { type: Schema.Types.ObjectId, ref: "Post" },
     postTitle: String,
+    commentId: { type: Schema.Types.ObjectId, ref: "Comment" },
     isRead: { type: Boolean, default: false }
   },
   {

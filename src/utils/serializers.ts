@@ -94,16 +94,31 @@ export const serializeComment = (
 });
 
 export const serializeNotification = (
-  notification: Partial<NotificationDocument> & { _id: Types.ObjectId }
-) => ({
-  id: toId(notification._id),
-  type: notification.type,
-  actor:
-    typeof notification.actor === "object" && notification.actor
-      ? serializeUser(notification.actor as any)
-      : undefined,
-  postId: notification.postId ? toId(notification.postId as Types.ObjectId) : undefined,
-  postTitle: notification.postTitle,
-  createdAt: notification.createdAt,
-  isRead: notification.isRead
-});
+  notification: Partial<NotificationDocument> & { _id: Types.ObjectId },
+  currentUserId?: Types.ObjectId
+) => {
+  const post =
+    typeof notification.postId === "object" && notification.postId
+      ? serializePost(notification.postId as any, currentUserId, { excerptLength: 160 })
+      : undefined;
+  const comment =
+    typeof notification.commentId === "object" && notification.commentId
+      ? serializeComment(notification.commentId as any, currentUserId)
+      : undefined;
+
+  return {
+    id: toId(notification._id),
+    type: notification.type,
+    actor:
+      typeof notification.actor === "object" && notification.actor
+        ? serializeUser(notification.actor as any)
+        : undefined,
+    postId: notification.postId ? toId(notification.postId as Types.ObjectId) : undefined,
+    commentId: notification.commentId ? toId(notification.commentId as Types.ObjectId) : undefined,
+    postTitle: notification.postTitle,
+    post,
+    comment,
+    createdAt: notification.createdAt,
+    isRead: notification.isRead
+  };
+};
