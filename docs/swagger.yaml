@@ -612,6 +612,37 @@ paths:
                 properties:
                   reel:
                     $ref: '#/components/schemas/Reel'
+  /reels/{id}/view:
+    post:
+      summary: Increment reel view count
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                watchedSeconds:
+                  type: number
+                  description: "How many seconds were watched in this play session"
+                  minimum: 0
+                  maximum: 36000
+            example:
+              watchedSeconds: 42
+      responses:
+        "200":
+          description: Viewed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reel:
+                    $ref: '#/components/schemas/Reel'
 
   /posts/{id}/comments:
     get:
@@ -1437,6 +1468,10 @@ components:
         tags:
           type: array
           items: { type: string }
+        views: { type: integer }
+        totalWatchSeconds: { type: number }
+        averageWatchSeconds: { type: number }
+        lastViewedAt: { type: string, format: date-time }
         likes: { type: integer }
         shares: { type: integer }
         comments: { type: integer }

@@ -6,13 +6,19 @@ import {
   getReel,
   likeReel,
   listReels,
+  viewReel,
   unbookmarkReel,
   unlikeReel,
   updateReel
 } from "../controllers/reelController";
 import { requireAuth, optionalAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
-import { createReelSchema, reelCursorSchema, updateReelSchema } from "../schemas/reelSchemas";
+import {
+  createReelSchema,
+  reelCursorSchema,
+  updateReelSchema,
+  viewReelSchema
+} from "../schemas/reelSchemas";
 
 const router = Router();
 
@@ -21,6 +27,7 @@ router.get("/:id", optionalAuth, getReel);
 router.post("/", requireAuth, validate(createReelSchema), createReel);
 router.patch("/:id", requireAuth, validate(updateReelSchema), updateReel);
 router.delete("/:id", requireAuth, deleteReel);
+router.post("/:id/view", optionalAuth, validate(viewReelSchema), viewReel);
 router.post("/:id/like", requireAuth, likeReel);
 router.delete("/:id/like", requireAuth, unlikeReel);
 router.post("/:id/bookmark", requireAuth, bookmarkReel);

@@ -30,3 +30,10 @@ export const reelCursorSchema = z.object({
     search: z.string().optional()
   })
 });
+
+export const viewReelSchema = z.object({
+  params: z.object({ id: z.string() }),
+  body: z.object({
+    watchedSeconds: z.number().min(0).max(36000).optional()
+  })
+});

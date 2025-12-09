@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { Reel } from "../models/Reel";
+import { ReelView } from "../models/ReelView";
 import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
 import { serializeUser } from "../utils/serializers";
@@ -13,24 +14,36 @@ const ensureObjectId = (id: string) => {
   if (!Types.ObjectId.isValid(id)) throw new HttpError(400, "Invalid id");
 };
 
-const serializeReel = (reel: any, currentUserId?: Types.ObjectId) => ({
-  id: reel._id.toString(),
-  author: reel.author ? serializeUser(reel.author as any, currentUserId) : undefined,
-  title: reel.title,
-  content: reel.content,
-  videoUrl: reel.videoUrl,
-  thumbnail: reel.thumbnail,
-  durationSeconds: reel.durationSeconds,
-  tags: reel.tags ?? [],
-  likes: reel.likes ?? (reel.likedBy ? reel.likedBy.length : 0),
-  shares: reel.shares ?? 0,
-  comments: reel.commentsCount ?? 0,
-  isLiked: reel.likedBy?.some((id: any) => id.toString() === currentUserId?.toString()) ?? false,
-  isBookmarked:
-    reel.bookmarkedBy?.some((id: any) => id.toString() === currentUserId?.toString()) ?? false,
-  createdAt: reel.createdAt,
-  displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined
-});
+const serializeReel = (reel: any, currentUserId?: Types.ObjectId) => {
+  const views = typeof reel.views === "number" ? reel.views : 0;
+  const totalWatchSeconds =
+    typeof reel.totalWatchSeconds === "number" ? reel.totalWatchSeconds : 0;
+  const averageWatchSeconds = views > 0 ? totalWatchSeconds / views : 0;
+
+  return {
+    id: reel._id.toString(),
+    author: reel.author ? serializeUser(reel.author as any, currentUserId) : undefined,
+    title: reel.title,
+    content: reel.content,
+    videoUrl: reel.videoUrl,
+    thumbnail: reel.thumbnail,
+    durationSeconds: reel.durationSeconds,
+    tags: reel.tags ?? [],
+    views,
+    totalWatchSeconds,
+    averageWatchSeconds,
+    lastViewedAt: reel.lastViewedAt,
+    likes: reel.likes ?? (reel.likedBy ? reel.likedBy.length : 0),
+    shares: reel.shares ?? 0,
+    comments: reel.commentsCount ?? 0,
+    isLiked:
+      reel.likedBy?.some((id: any) => id.toString() === currentUserId?.toString()) ?? false,
+    isBookmarked:
+      reel.bookmarkedBy?.some((id: any) => id.toString() === currentUserId?.toString()) ?? false,
+    createdAt: reel.createdAt,
+    displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined
+  };
+};
 
 export const listReels = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
@@ -54,6 +67,26 @@ export const getReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   const reel = await Reel.findById(req.params.id).populate("author", authorProjection).lean();
   if (!reel) throw new HttpError(404, "Reel not found");
+  res.json({ reel: serializeReel(reel, req.user?._id) });
+};
+
+export const viewReel = async (req: Request, res: Response) => {
+  ensureObjectId(req.params.id);
+  const watchedSeconds =
+    typeof req.body?.watchedSeconds === "number" ? req.body.watchedSeconds : 0;
+  const reel = await Reel.findByIdAndUpdate(
+    req.params.id,
+    { $inc: { views: 1, totalWatchSeconds: watchedSeconds }, $set: { lastViewedAt: new Date() } },
+    { new: true }
+  )
+    .populate("author", authorProjection)
+    .lean();
+  if (!reel) throw new HttpError(404, "Reel not found");
+  await ReelView.create({
+    reelId: reel._id,
+    userId: req.user?._id,
+    watchedSeconds
+  });
   res.json({ reel: serializeReel(reel, req.user?._id) });
 };
 

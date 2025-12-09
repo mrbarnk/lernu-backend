@@ -9,9 +9,15 @@ export interface ReelAttrs {
   thumbnail?: string;
   durationSeconds?: number;
   tags?: string[];
+  views?: number;
+  totalWatchSeconds?: number;
+  lastViewedAt?: Date;
 }
 
 export interface ReelDocument extends Document, ReelAttrs {
+  views: number;
+  totalWatchSeconds: number;
+  lastViewedAt?: Date;
   likes: number;
   shares: number;
   commentsCount: number;
@@ -29,6 +35,9 @@ const reelSchema = new Schema<ReelDocument>(
     thumbnail: { type: String },
     durationSeconds: { type: Number },
     tags: [{ type: String }],
+    views: { type: Number, default: 0 },
+    totalWatchSeconds: { type: Number, default: 0 },
+    lastViewedAt: { type: Date },
     likes: { type: Number, default: 0 },
     shares: { type: Number, default: 0 },
     commentsCount: { type: Number, default: 0 },
