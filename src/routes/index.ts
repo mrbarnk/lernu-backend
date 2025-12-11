@@ -12,6 +12,7 @@ import sitemapRoutes from "./sitemap";
 import searchRoutes from "./search";
 import reelRoutes from "./reels";
 import communityRoutes from "./community";
+import projectRoutes from "./projects";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
@@ -27,4 +28,5 @@ export const registerRoutes = (app: Express) => {
   app.use("/users", userRoutes);
   app.use("/stats", statsRoutes);
   app.use("/uploads", uploadRoutes);
+  app.use("/api/projects", projectRoutes);
 };
