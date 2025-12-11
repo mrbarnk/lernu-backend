@@ -5,6 +5,7 @@ TypeScript + Express + MongoDB API for posts, comments, reactions, notifications
 ### Setup
 - Install Node 18+ and MongoDB.
 - Copy `.env.example` to `.env` and adjust values (Mongo URI, JWT secret, client origin, upload dir, R2 credentials/bucket/public base).
+- Configure the optional `SMTP_*` variables to enable outbound email alerts for comment/reply notifications.
 - Install deps: `npm install`.
 - Seed default categories: `npm run seed`.
 - Start dev server: `npm run dev` (listens on `PORT`, default 4000).
@@ -34,5 +35,6 @@ TypeScript + Express + MongoDB API for posts, comments, reactions, notifications
 - Notification payloads include the triggering `actor` plus `post`/`comment` objects when relevant so the client can deep-link to the content; follow events surface the follower as `actor`.
 - Uploads are stored locally by default; switch to S3/R2 via `UPLOAD_DRIVER` config.
 - Reel responses include `views`, `totalWatchSeconds`, and `averageWatchSeconds`; increment with `POST /reels/:id/view` (auth optional) when playback starts/ends, passing `watchedSeconds` to capture watch time.
+- Email alerts are sent for post/reel comment notifications (including replies) when SMTP settings are configured.
 - Each view call logs who watched (if authenticated), when it was watched, and how many seconds were viewed so you can build per-user counts and average watch time later.
 - Suggested reel engagement score for a trending rail: `(views * 0.25) + (likes * 3) + (comments * 4) + (shares * 5)`, optionally time-decayed (e.g., halve weight every 24h) to favor recent activity.

@@ -8,6 +8,8 @@ export interface NotificationAttrs {
   type: NotificationType;
   postId?: Types.ObjectId;
   postTitle?: string;
+  reelId?: Types.ObjectId;
+  reelTitle?: string;
   commentId?: Types.ObjectId;
 }
 
@@ -23,6 +25,8 @@ const notificationSchema = new Schema<NotificationDocument>(
     type: { type: String, enum: ["like", "comment", "mention", "follow"], required: true },
     postId: { type: Schema.Types.ObjectId, ref: "Post" },
     postTitle: String,
+    reelId: { type: Schema.Types.ObjectId, ref: "Reel" },
+    reelTitle: String,
     commentId: { type: Schema.Types.ObjectId, ref: "Comment" },
     isRead: { type: Boolean, default: false }
   },

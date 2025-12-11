@@ -10,6 +10,14 @@ const get = (key: string, fallback?: string) => {
   return value;
 };
 
+const optional = (key: string, fallback?: string) => process.env[key] ?? fallback;
+
+const parseNumber = (value?: string) => {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT) || 4000,
@@ -17,11 +25,18 @@ export const env = {
   jwtSecret: get("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   refreshExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN ?? "30d",
-  clientUrl: "https://lernu.io",
+  clientUrl: optional("CLIENT_URL", "https://lernu.io")!,
   uploadDir: process.env.UPLOAD_DIR ?? "./uploads",
   r2Endpoint: get("R2_ENDPOINT"),
   r2AccessKey: get("R2_ACCESS_KEY"),
   r2SecretKey: get("R2_SECRET_KEY"),
   r2Bucket: get("R2_BUCKET"),
-  r2PublicBase: get("R2_PUBLIC_BASE")
+  r2PublicBase: get("R2_PUBLIC_BASE"),
+  smtpHost: optional("SMTP_HOST"),
+  smtpPort: parseNumber(process.env.SMTP_PORT),
+  smtpUser: optional("SMTP_USER"),
+  smtpPass: optional("SMTP_PASS"),
+  smtpFrom: optional("SMTP_FROM"),
+  smtpFromName: optional("SMTP_FROM_NAME"),
+  smtpSecure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true"
 };

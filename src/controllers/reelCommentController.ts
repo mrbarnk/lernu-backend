@@ -5,6 +5,7 @@ import { Reel } from "../models/Reel";
 import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
 import { serializeComment } from "../utils/serializers";
+import { notifyCommentParticipants } from "../services/notificationService";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
@@ -65,6 +66,18 @@ export const addReelComment = async (req: Request, res: Response) => {
     parentComment.repliesCount = (parentComment.repliesCount ?? 0) + 1;
     await parentComment.save();
   }
+
+  await notifyCommentParticipants({
+    actor: req.user,
+    comment: { _id: comment._id, content: comment.content },
+    reel: {
+      _id: reel._id,
+      title: reel.title,
+      author: reel.author as any,
+      createdAt: reel.createdAt
+    },
+    parentCommentAuthorId: parentComment?.author as any
+  });
 
   await comment.populate("author", authorProjection);
   res.status(201).json({ comment: serializeComment(comment as any, req.user._id) });

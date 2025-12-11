@@ -76,6 +76,7 @@ export const serializeComment = (
 ) => ({
   id: toId(comment._id),
   postId: comment.postId ? toId(comment.postId as Types.ObjectId) : undefined,
+  reelId: comment.reelId ? toId(comment.reelId as Types.ObjectId) : undefined,
   author:
     typeof comment.author === "object" && comment.author
       ? serializeUser(comment.author as unknown as UserDocument)
@@ -114,8 +115,10 @@ export const serializeNotification = (
         ? serializeUser(notification.actor as any)
         : undefined,
     postId: notification.postId ? toId(notification.postId as Types.ObjectId) : undefined,
+    reelId: notification.reelId ? toId(notification.reelId as Types.ObjectId) : undefined,
     commentId: notification.commentId ? toId(notification.commentId as Types.ObjectId) : undefined,
     postTitle: notification.postTitle,
+    reelTitle: notification.reelTitle,
     post,
     comment,
     createdAt: notification.createdAt,

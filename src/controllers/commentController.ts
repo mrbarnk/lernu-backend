@@ -7,7 +7,11 @@ import { Report } from "../models/Report";
 import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
 import { serializeComment } from "../utils/serializers";
-import { notifyMentions, notifyUser } from "../services/notificationService";
+import {
+  notifyCommentParticipants,
+  notifyMentions,
+  notifyUser
+} from "../services/notificationService";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -43,9 +47,10 @@ export const getComments = async (req: Request, res: Response) => {
 
 export const createComment = async (req: Request, res: Response) => {
   const { postId, content, code, images, parentId } = req.body;
+  const reelId = req.body.reelId;
   if (!req.user) throw new HttpError(401, "Authentication required");
 
-  if (!postId && !req.body.reelId) throw new HttpError(400, "postId or reelId required");
+  if (!postId && !reelId) throw new HttpError(400, "postId or reelId required");
 
   let post: any = null;
   let reel: any = null;
@@ -56,9 +61,9 @@ export const createComment = async (req: Request, res: Response) => {
     if (!post) throw new HttpError(404, "Post not found");
   }
 
-  if (req.body.reelId) {
-    ensureValidObjectId(req.body.reelId, "Invalid reel");
-    reel = await Reel.findById(req.body.reelId);
+  if (reelId) {
+    ensureValidObjectId(reelId, "Invalid reel");
+    reel = await Reel.findById(reelId);
     if (!reel) throw new HttpError(404, "Reel not found");
   }
 
@@ -70,14 +75,14 @@ export const createComment = async (req: Request, res: Response) => {
     if (post && (!parentComment.postId || !parentComment.postId.equals(postId))) {
       throw new HttpError(400, "Parent comment mismatch");
     }
-    if (reel && (!parentComment.reelId || !parentComment.reelId.equals(req.body.reelId))) {
+    if (reel && (!parentComment.reelId || !parentComment.reelId.equals(reelId))) {
       throw new HttpError(400, "Parent comment mismatch");
     }
   }
 
   const comment = await Comment.create({
     postId,
-    reelId: req.body.reelId,
+    reelId,
     content,
     code,
     images,
@@ -85,23 +90,29 @@ export const createComment = async (req: Request, res: Response) => {
     author: req.user._id
   });
 
-  if (postId) await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+  if (post) await Post.findByIdAndUpdate(post._id, { $inc: { commentsCount: 1 } });
   if (reel) await Reel.findByIdAndUpdate(reel._id, { $inc: { commentsCount: 1 } });
   if (parentComment) {
     parentComment.repliesCount = (parentComment.repliesCount ?? 0) + 1;
     await parentComment.save();
   }
 
-  await notifyUser({
-    userId: post.author as any,
-    actorId: req.user._id,
-    type: "comment",
-    postId: post._id,
-    postTitle: post.title,
-    commentId: comment._id
+  await notifyCommentParticipants({
+    actor: req.user,
+    comment: { _id: comment._id, content: comment.content },
+    post: post
+      ? { _id: post._id, title: post.title, author: post.author as any, createdAt: post.createdAt }
+      : undefined,
+    reel: reel
+      ? { _id: reel._id, title: reel.title, author: reel.author as any, createdAt: reel.createdAt }
+      : undefined,
+    parentCommentAuthorId: parentComment?.author as any
   });
 
-  await notifyMentions(content, req.user._id, post._id, post.title || undefined);
+  if (post) {
+    await notifyMentions(content, req.user._id, post._id, post.title || undefined);
+  }
+
   await comment.populate("author", authorProjection);
 
   res.status(201).json({ comment: serializeComment(comment as any, req.user._id) });
@@ -164,6 +175,7 @@ export const likeComment = async (req: Request, res: Response) => {
     actorId: req.user._id,
     type: "like",
     postId: comment.postId as Types.ObjectId,
+    reelId: comment.reelId as Types.ObjectId,
     commentId: comment._id
   });
 
