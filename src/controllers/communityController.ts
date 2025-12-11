@@ -8,14 +8,11 @@ import { serializePost, serializeReel } from "../utils/serializers";
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
 
-const titleMissingFilter = { $or: [{ title: { $exists: false } }, { title: null }, { title: "" }] };
-const uncategorizedFilter = { $or: [{ categoryId: { $exists: false } }, { categoryId: null }] };
-
 export const getCommunityFeed = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   const cursorFilter = buildCursorFilter(cursor);
 
-  const postsPromise = Post.find({ ...cursorFilter, $and: [titleMissingFilter, uncategorizedFilter] })
+  const postsPromise = Post.find(cursorFilter)
     .sort({ createdAt: -1 })
     .limit(limit + 1)
     .populate("author", authorProjection)
