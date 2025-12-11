@@ -20,6 +20,8 @@ TypeScript + Express + MongoDB API for posts, comments, reactions, notifications
 - Auth: `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`.
 - Categories: `GET /categories`.
 - Posts: `GET /posts?categoryId=&search=&cursor=&limit=`, `GET /posts/trending?window=24h&limit=3`, `GET /posts/:id`, `POST /posts`, `PATCH /posts/:id`, `DELETE /posts/:id`, `POST/DELETE /posts/:id/like`, `POST/DELETE /posts/:id/bookmark`, `POST /posts/:id/share`, `POST /posts/:id/report`.
+- Community feed (uncategorized, title-less posts + reels): `GET /community?cursor=&limit=`.
+- Create community post (no title/category required): `POST /community/posts`.
 - Reels: `GET /reels?cursor=&limit=&search=`, `GET /reels/:id`, `POST /reels`, `PATCH /reels/:id`, `DELETE /reels/:id`, `POST/DELETE /reels/:id/like`, `POST/DELETE /reels/:id/bookmark`, `POST /reels/:id/view`.
 - Comments: `GET /posts/:id/comments?cursor=&limit=`, `GET /reels/:id/comments?cursor=&limit=`, `POST /comments` or `POST /reels/:id/comments`, `PATCH /comments/:id`, `DELETE /comments/:id`, `POST/DELETE /comments/:id/like`, `POST /comments/:id/accept`, `POST /comments/:id/report`.
 - Notifications: `GET /notifications?cursor=&limit=&unreadOnly=true`, `POST /notifications/:id/read`, `POST /notifications/read-all`.

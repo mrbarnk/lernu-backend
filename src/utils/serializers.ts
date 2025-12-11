@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { CommentDocument } from "../models/Comment";
 import { NotificationDocument } from "../models/Notification";
 import { PostDocument } from "../models/Post";
+import { ReelDocument } from "../models/Reel";
 import { UserDocument } from "../models/User";
 import { formatDisplayTime } from "./date";
 
@@ -69,6 +70,40 @@ export const serializePost = (
   isLiked: hasUserId(post.likedBy, currentUserId) ?? false,
   isBookmarked: hasUserId(post.bookmarkedBy, currentUserId) ?? false
 });
+
+export const serializeReel = (
+  reel: Partial<ReelDocument> & { _id: Types.ObjectId },
+  currentUserId?: Types.ObjectId
+) => {
+  const views = typeof reel.views === "number" ? reel.views : 0;
+  const totalWatchSeconds = typeof reel.totalWatchSeconds === "number" ? reel.totalWatchSeconds : 0;
+  const averageWatchSeconds = views > 0 ? totalWatchSeconds / views : 0;
+
+  return {
+    id: toId(reel._id),
+    author:
+      typeof reel.author === "object" && reel.author
+        ? serializeUser(reel.author as unknown as UserDocument, currentUserId)
+        : undefined,
+    title: (reel as ReelDocument).title,
+    content: (reel as ReelDocument).content,
+    videoUrl: (reel as ReelDocument).videoUrl,
+    thumbnail: (reel as ReelDocument).thumbnail,
+    durationSeconds: (reel as ReelDocument).durationSeconds,
+    tags: (reel as ReelDocument).tags ?? [],
+    views,
+    totalWatchSeconds,
+    averageWatchSeconds,
+    lastViewedAt: (reel as ReelDocument).lastViewedAt,
+    likes: reel.likes ?? (reel.likedBy ? (reel.likedBy as Types.ObjectId[]).length : 0),
+    shares: reel.shares ?? 0,
+    comments: (reel as any).commentsCount ?? 0,
+    isLiked: hasUserId(reel.likedBy, currentUserId) ?? false,
+    isBookmarked: hasUserId(reel.bookmarkedBy, currentUserId) ?? false,
+    createdAt: reel.createdAt,
+    displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined
+  };
+};
 
 export const serializeComment = (
   comment: Partial<CommentDocument> & { _id: Types.ObjectId },

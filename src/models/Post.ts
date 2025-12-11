@@ -9,7 +9,7 @@ export interface CodeBlock {
 
 export interface PostAttrs {
   author: Types.ObjectId | UserDocument;
-  categoryId: Types.ObjectId | CategoryDocument;
+  categoryId?: Types.ObjectId | CategoryDocument | null;
   title?: string;
   content: string;
   code?: CodeBlock;
@@ -41,7 +41,7 @@ const codeSchema = new Schema<CodeBlock>(
 const postSchema = new Schema<PostDocument>(
   {
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+    categoryId: { type: Schema.Types.ObjectId, ref: "Category", default: null },
     title: { type: String, trim: true },
     content: { type: String, required: true },
     code: codeSchema,

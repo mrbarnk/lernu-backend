@@ -11,6 +11,7 @@ import docsRoutes from "./docs";
 import sitemapRoutes from "./sitemap";
 import searchRoutes from "./search";
 import reelRoutes from "./reels";
+import communityRoutes from "./community";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
@@ -20,6 +21,7 @@ export const registerRoutes = (app: Express) => {
   app.use("/categories", categoryRoutes);
   app.use("/reels", reelRoutes);
   app.use("/posts", postRoutes);
+  app.use("/community", communityRoutes);
   app.use(commentRoutes);
   app.use("/notifications", notificationRoutes);
   app.use("/users", userRoutes);

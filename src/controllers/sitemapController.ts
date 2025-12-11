@@ -16,27 +16,32 @@ export function formatDateForUrl(date: Date | string): string {
  * Generate an SEO-friendly post URL
  * Format: /post/YYYY-MM-DD/title-slug
  */
-export function generatePostUrl(post: { id: string; title?: string; content: string; createdAt: string }): string {
+export function generatePostUrl(post: {
+  id: string;
+  title?: string | null;
+  content?: string;
+  createdAt: string;
+}): string {
   const dateStr = formatDateForUrl(post.createdAt);
-  const titleOrContent = post.title || post.content.slice(0, 60);
-  const slug = slugify(titleOrContent);
+  const candidate = (post.title && post.title.trim()) || (post.content || "").slice(0, 60);
+  const slugBase = candidate && candidate.trim().length > 0 ? candidate : post.id;
+  const slug = slugify(slugBase);
   return `/post/${dateStr}/${slug}-${post.id}`;
 }
 
 export const getSitemap = async (_req: Request, res: Response) => {
-  const posts = await Post.find({}, "title createdAt updatedAt")
+  const posts = await Post.find({}, "title content createdAt updatedAt")
     .sort({ createdAt: -1 })
     .limit(5000)
     .lean();
 
   const base = env.clientUrl.replace(/\/+$/, "");
   const urls = posts.map((post) => {
-    const slug = post.title ? slugify(post.title) : post._id.toString();
     const loc = `${base}${generatePostUrl({
       title: post.title,
       id: post._id.toString(),
-      content: post.content || '',
-      createdAt: post.createdAt.toString(),
+      content: post.content || "",
+      createdAt: post.createdAt.toString()
     })}`;
     const lastmod = (post.updatedAt || post.createdAt || new Date()).toISOString();
     return { loc, lastmod };
