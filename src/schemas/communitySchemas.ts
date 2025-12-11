@@ -23,3 +23,12 @@ export const communityPostSchema = z.object({
     images: imagesSchema
   })
 });
+
+export const communityReplySchema = z.object({
+  params: z.object({ id: z.string() }),
+  body: z.object({
+    content: z.string().min(1),
+    code: codeSchema,
+    images: imagesSchema
+  })
+});

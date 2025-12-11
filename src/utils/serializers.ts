@@ -47,29 +47,36 @@ export const serializePost = (
   post: Partial<PostDocument> & { _id: Types.ObjectId },
   currentUserId?: Types.ObjectId,
   options?: { excerptLength?: number }
-) => ({
-  id: toId(post._id),
-  author:
-    typeof post.author === "object" && post.author
-      ? serializeUser(post.author as unknown as UserDocument, currentUserId)
-      : undefined,
-  categoryId: post.categoryId ? toId(post.categoryId as Types.ObjectId) : undefined,
-  title: post.title,
-  content: options?.excerptLength ? makeExcerpt(post.content, options.excerptLength) : post.content,
-  code: post.code,
-  images: post.images ?? [],
-  createdAt: post.createdAt,
-  displayTime: post.createdAt ? formatDisplayTime(new Date(post.createdAt)) : undefined,
-  tags: post.tags ?? [],
-  likes: post.likes ?? (post.likedBy ? (post.likedBy as Types.ObjectId[]).length : 0),
-  comments: post.commentsCount ?? 0,
-  shares: post.shares ?? 0,
-  isPinned: post.isPinned ?? false,
-  isSolved: post.isSolved ?? false,
-  isEdited: post.isEdited ?? false,
-  isLiked: hasUserId(post.likedBy, currentUserId) ?? false,
-  isBookmarked: hasUserId(post.bookmarkedBy, currentUserId) ?? false
-});
+) => {
+  const images = Array.isArray(post.images)
+    ? (post.images as string[]).filter((img) => typeof img === "string" && img.trim().length > 0)
+    : [];
+
+  return {
+    id: toId(post._id),
+    author:
+      typeof post.author === "object" && post.author
+        ? serializeUser(post.author as unknown as UserDocument, currentUserId)
+        : undefined,
+    categoryId: post.categoryId ? toId(post.categoryId as Types.ObjectId) : undefined,
+    title: post.title,
+    content: options?.excerptLength ? makeExcerpt(post.content, options.excerptLength) : post.content,
+    code: post.code,
+    images: images.length ? images : undefined,
+    hasMedia: images.length > 0,
+    createdAt: post.createdAt,
+    displayTime: post.createdAt ? formatDisplayTime(new Date(post.createdAt)) : undefined,
+    tags: post.tags ?? [],
+    likes: post.likes ?? (post.likedBy ? (post.likedBy as Types.ObjectId[]).length : 0),
+    comments: post.commentsCount ?? 0,
+    shares: post.shares ?? 0,
+    isPinned: post.isPinned ?? false,
+    isSolved: post.isSolved ?? false,
+    isEdited: post.isEdited ?? false,
+    isLiked: hasUserId(post.likedBy, currentUserId) ?? false,
+    isBookmarked: hasUserId(post.bookmarkedBy, currentUserId) ?? false
+  };
+};
 
 export const serializeReel = (
   reel: Partial<ReelDocument> & { _id: Types.ObjectId },
@@ -78,6 +85,7 @@ export const serializeReel = (
   const views = typeof reel.views === "number" ? reel.views : 0;
   const totalWatchSeconds = typeof reel.totalWatchSeconds === "number" ? reel.totalWatchSeconds : 0;
   const averageWatchSeconds = views > 0 ? totalWatchSeconds / views : 0;
+  const thumbnail = (reel as ReelDocument).thumbnail;
 
   return {
     id: toId(reel._id),
@@ -88,7 +96,7 @@ export const serializeReel = (
     title: (reel as ReelDocument).title,
     content: (reel as ReelDocument).content,
     videoUrl: (reel as ReelDocument).videoUrl,
-    thumbnail: (reel as ReelDocument).thumbnail,
+    thumbnail: thumbnail && thumbnail.trim().length ? thumbnail : undefined,
     durationSeconds: (reel as ReelDocument).durationSeconds,
     tags: (reel as ReelDocument).tags ?? [],
     views,
@@ -101,7 +109,8 @@ export const serializeReel = (
     isLiked: hasUserId(reel.likedBy, currentUserId) ?? false,
     isBookmarked: hasUserId(reel.bookmarkedBy, currentUserId) ?? false,
     createdAt: reel.createdAt,
-    displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined
+    displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined,
+    hasMedia: Boolean((reel as ReelDocument).videoUrl || thumbnail)
   };
 };
 

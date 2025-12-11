@@ -1,9 +1,12 @@
 import { Request, Response } from "express";
+import { Types } from "mongoose";
+import { Comment } from "../models/Comment";
 import { Post } from "../models/Post";
 import { Reel } from "../models/Reel";
+import { HttpError } from "../middleware/error";
 import { notifyMentions } from "../services/notificationService";
 import { buildCursorFilter, parsePagination } from "../utils/pagination";
-import { serializePost, serializeReel } from "../utils/serializers";
+import { serializeComment, serializePost, serializeReel } from "../utils/serializers";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
@@ -53,6 +56,10 @@ export const getCommunityFeed = async (req: Request, res: Response) => {
   res.json({ items, nextCursor });
 };
 
+const ensureObjectId = (value: string, message = "Invalid id") => {
+  if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
+};
+
 export const createCommunityPost = async (req: Request, res: Response) => {
   if (!req.user) {
     res.status(401).json({ message: "Authentication required" });
@@ -74,4 +81,33 @@ export const createCommunityPost = async (req: Request, res: Response) => {
   await post.populate("author", authorProjection);
 
   res.status(201).json({ post: serializePost(post as any, req.user._id) });
+};
+
+export const replyToCommunityComment = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+
+  const parentId = req.params.id;
+  const { content, code, images } = req.body;
+  ensureObjectId(parentId, "Invalid parent comment");
+
+  const parent = await Comment.findById(parentId);
+  if (!parent) throw new HttpError(404, "Parent comment not found");
+
+  const comment = await Comment.create({
+    postId: parent.postId,
+    reelId: parent.reelId,
+    content,
+    code,
+    images,
+    parentId: parent._id,
+    author: req.user._id
+  });
+
+  if (parent.postId) await Post.findByIdAndUpdate(parent.postId, { $inc: { commentsCount: 1 } });
+  if (parent.reelId) await Reel.findByIdAndUpdate(parent.reelId, { $inc: { commentsCount: 1 } });
+  parent.repliesCount = (parent.repliesCount ?? 0) + 1;
+  await parent.save();
+
+  await comment.populate("author", authorProjection);
+  res.status(201).json({ comment: serializeComment(comment as any, req.user._id) });
 };
