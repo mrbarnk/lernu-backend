@@ -12,7 +12,7 @@ const tagsSchema = z.array(z.string()).max(5).optional();
 
 export const createPostSchema = z.object({
   body: z.object({
-    title: z.string().min(1).optional(),
+    title: z.string().min(1),
     content: z.string().min(1),
     categoryId: z.string(),
     code: codeSchema,
