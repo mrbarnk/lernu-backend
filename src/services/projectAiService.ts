@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI as GoogleGenerativeAI } from "@google/genai";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
@@ -15,7 +15,7 @@ export interface AiScene {
 }
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
-const geminiClient = env.geminiApiKey ? new GoogleGenerativeAI(env.geminiApiKey) : null;
+const geminiClient = env.geminiApiKey ? new GoogleGenerativeAI({ apiKey: env.geminiApiKey }) : null;
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
 const defaultProvider: AiProvider =
@@ -38,10 +38,10 @@ const mapUsage = (usage: ChatUsage, model: string): AiUsageMetrics | undefined =
 
 type GeminiUsage =
   | {
-      promptTokenCount?: number;
-      candidatesTokenCount?: number;
-      totalTokenCount?: number;
-    }
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  }
   | undefined;
 
 const mapGeminiUsage = (usage: GeminiUsage, model: string): AiUsageMetrics | undefined => {
