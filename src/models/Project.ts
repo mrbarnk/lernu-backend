@@ -22,6 +22,8 @@ export interface ProjectAttrs {
   description?: string;
   status?: ProjectStatus;
   style?: ProjectStyle;
+  script?: string;
+  refinedScript?: string;
 }
 
 export interface ProjectDocument extends Document, ProjectAttrs {
@@ -35,6 +37,8 @@ const projectSchema = new Schema<ProjectDocument>(
     title: { type: String, required: true, trim: true, maxlength: 200 },
     topic: { type: String, required: true, trim: true, maxlength: 500 },
     description: { type: String, trim: true, maxlength: 2000 },
+    script: { type: String, trim: true, maxlength: 5000 },
+    refinedScript: { type: String, trim: true, maxlength: 5000 },
     status: {
       type: String,
       enum: ["draft", "in-progress", "completed"],

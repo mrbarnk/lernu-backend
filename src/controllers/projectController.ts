@@ -71,6 +71,8 @@ const serializeProject = (project: ProjectDocument & { _id: Types.ObjectId }, sc
   title: project.title,
   topic: project.topic,
   description: project.description,
+  script: project.script,
+  refinedScript: project.refinedScript,
   status: project.status,
   style: project.style,
   createdAt: project.createdAt,
@@ -293,6 +295,7 @@ export const createProject = async (req: Request, res: Response) => {
   const targetSceneCount = sceneCount ?? estimateSceneCountFromScript(scriptText);
 
   let generatedScenes: AiScene[] = [];
+  let refinedScriptUsed: string | undefined;
   if (shouldGenerate) {
     if (!scriptText) throw new HttpError(400, "Script is required to generate scenes");
     enforceAiRateLimit(
@@ -309,6 +312,7 @@ export const createProject = async (req: Request, res: Response) => {
       refine
     });
     generatedScenes = generationResult.scenes;
+    refinedScriptUsed = generationResult.refinedScript ?? generationResult.scriptUsed ?? scriptText;
     await recordAiUsage({
       userId: req.user._id,
       action: "project:create:generate-scenes",
@@ -342,6 +346,8 @@ export const createProject = async (req: Request, res: Response) => {
     topic: topicValue,
     description,
     style,
+    script: scriptText,
+    refinedScript: refinedScriptUsed,
     status: shouldGenerate ? "in-progress" : "draft"
   });
 
@@ -569,7 +575,9 @@ export const generateScenes = async (req: Request, res: Response) => {
     scenes,
     totalDuration,
     averageSceneDuration,
-    bRollCount: scenes.length
+    bRollCount: scenes.length,
+    script: generationResult.scriptUsed ?? scriptText,
+    refinedScript: generationResult.refinedScript
   });
 };
 

@@ -5,7 +5,7 @@ import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
 import { AiUsageMetrics } from "./aiUsageService";
 
-export type AiProvider = "openai" | "gemini";
+export type AiProvider = "openai" | "gemini" | "veo3";
 export interface AiScene {
   sceneNumber: number;
   description: string;
@@ -19,7 +19,9 @@ const geminiClient = env.geminiApiKey ? new GoogleGenAI({ apiKey: env.geminiApiK
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
 const defaultProvider: AiProvider =
-  env.aiProvider === "gemini" || env.aiProvider === "openai" ? env.aiProvider : "openai";
+  env.aiProvider === "gemini" || env.aiProvider === "openai" || env.aiProvider === "veo3"
+    ? (env.aiProvider as AiProvider)
+    : "openai";
 const defaultStyle: ProjectStyle = "cinematic";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -127,16 +129,15 @@ const normalizeScene = (scene: any, index: number): AiScene => {
   };
 };
 
-const normalizeScenes = (data: any, targetCount: number): AiScene[] => {
+const normalizeScenes = (data: any, targetCount?: number): AiScene[] => {
   const scenesArray = Array.isArray(data?.scenes)
     ? data.scenes
     : Array.isArray(data)
       ? data
       : [];
   if (!scenesArray.length) throw new Error("No scenes returned");
-  return scenesArray
-    .slice(0, targetCount)
-    .map((scene: unknown, idx: number) => normalizeScene(scene, idx));
+  const limit = targetCount ?? scenesArray.length;
+  return scenesArray.slice(0, limit).map((scene: unknown, idx: number) => normalizeScene(scene, idx));
 };
 
 const stringifyScriptPayload = (value: unknown): string => {
@@ -173,6 +174,25 @@ const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyl
     parts.push(script);
   }
   parts.push("Return a JSON object with a single key 'scenes' containing the array.");
+  return parts.join("\n\n");
+};
+
+const buildVeoScenesPrompt = (topic: string, style: ProjectStyle, script?: string) => {
+  const parts = [
+    "Create short scenes for a faceless video that will be rendered into ~8 seconds total.",
+    `Topic reference: "${topic}". Let the model choose the right number of scenes to fit ~8s (usually 3-6 scenes).`,
+    "Use the provided script as the primary source and preserve its order and intent.",
+    `Visual style: ${styleGuidance[style]}.`,
+    "For each scene include: description (voiceover line), imagePrompt (era/place-accurate cinematic still), bRollPrompt (supporting footage for that exact line), and duration in seconds.",
+    "Each scene/b-roll should be between 1-4 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
+    "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
+    "If the topic or script hints at a historical period or place (e.g., 1920s Paris), explicitly anchor each imagePrompt and bRollPrompt in that era with era-accurate details (fashion, tech, lighting, vehicles, architecture).",
+    "Return a JSON object with a single key 'scenes' containing the array."
+  ];
+  if (script) {
+    parts.push("Script to split into scenes (hook/context/ladder/etc. are just narration text):");
+    parts.push(script);
+  }
   return parts.join("\n\n");
 };
 
@@ -335,7 +355,13 @@ const generateScenesWithOpenAi = async (params: {
   script?: string;
   style: ProjectStyle;
   refine: boolean;
-}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
+}): Promise<{
+  scenes: AiScene[];
+  scriptUsed?: string;
+  refinedScript?: string;
+  usage?: AiUsageMetrics;
+  refinementUsage?: AiUsageMetrics;
+}> => {
   const { topic, sceneCount, script, style, refine } = params;
   const refinement =
     refine && script ? await refineScriptForFacelessChannel({ script, topic }) : undefined;
@@ -356,6 +382,8 @@ const generateScenesWithOpenAi = async (params: {
   const scenes = normalizeScenes(parsed, sceneCount);
   return {
     scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
+    scriptUsed: scriptForScenes,
+    refinedScript: refinement?.script,
     usage: mapUsage(completion.usage, defaultModel),
     refinementUsage: refinement?.usage
   };
@@ -367,17 +395,30 @@ const generateScenesWithGemini = async (params: {
   script?: string;
   style: ProjectStyle;
   refine: boolean;
-}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
-  const { topic, sceneCount, script, style, refine } = params;
+  provider?: AiProvider;
+}): Promise<{
+  scenes: AiScene[];
+  scriptUsed?: string;
+  refinedScript?: string;
+  usage?: AiUsageMetrics;
+  refinementUsage?: AiUsageMetrics;
+}> => {
+  const { topic, sceneCount, script, style, refine, provider } = params;
   const refinement =
     refine && script ? await refineScriptWithGemini({ script, topic }) : undefined;
   const scriptForScenes = refinement?.script ?? script;
-  const prompt = buildScenesPrompt(topic, sceneCount, style, scriptForScenes);
+  const prompt =
+    provider === "veo3"
+      ? buildVeoScenesPrompt(topic, style, scriptForScenes)
+      : buildScenesPrompt(topic, sceneCount, style, scriptForScenes);
+  const limit = provider === "veo3" ? undefined : sceneCount;
   const { text, usage } = await callGeminiJson({ prompt, temperature: 0.7 });
   const parsed = parseJson(text);
-  const scenes = normalizeScenes(parsed, sceneCount);
+  const scenes = normalizeScenes(parsed, limit);
   return {
     scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
+    scriptUsed: scriptForScenes,
+    refinedScript: refinement?.script,
     usage,
     refinementUsage: refinement?.usage
   };
@@ -390,7 +431,13 @@ export const generateScenesForTopic = async (params: {
   style?: ProjectStyle;
   provider?: AiProvider;
   refine?: boolean;
-}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
+}): Promise<{
+  scenes: AiScene[];
+  scriptUsed?: string;
+  refinedScript?: string;
+  usage?: AiUsageMetrics;
+  refinementUsage?: AiUsageMetrics;
+}> => {
   const {
     topic,
     sceneCount = 4,
@@ -401,13 +448,14 @@ export const generateScenesForTopic = async (params: {
   } = params;
   const targetCount = clamp(sceneCount, 1, 20);
 
-  if (provider === "gemini") {
+  if (provider === "gemini" || provider === "veo3") {
     return generateScenesWithGemini({
       topic,
       sceneCount: targetCount,
       script,
       style,
-      refine
+      refine,
+      provider
     });
   }
 
