@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/genai";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
@@ -14,6 +15,7 @@ export interface AiScene {
 }
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
+const geminiClient = env.geminiApiKey ? new GoogleGenerativeAI(env.geminiApiKey) : null;
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
 const defaultProvider: AiProvider =
@@ -210,36 +212,26 @@ const requireClient = () => {
   return client;
 };
 
-const requireGeminiKey = () => {
-  if (!env.geminiApiKey) throw new HttpError(500, "Gemini API key is not configured");
-  return env.geminiApiKey;
+const requireGeminiClient = () => {
+  if (!geminiClient) throw new HttpError(500, "Gemini API key is not configured");
+  return geminiClient;
 };
 
 const callGeminiJson = async (params: { prompt: string; temperature: number }) => {
   const { prompt, temperature } = params;
-  const apiKey = requireGeminiKey();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${defaultGeminiModel}:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature }
-    })
+  const clientInstance = requireGeminiClient();
+  const model = clientInstance.getGenerativeModel({
+    model: defaultGeminiModel,
+    generationConfig: {
+      temperature,
+      responseMimeType: "application/json"
+    }
   });
-  if (!response.ok) {
-    // eslint-disable-next-line no-console
-    console.error("Gemini API error", response.status, response.statusText);
-    throw new HttpError(500, "Failed to generate content with Gemini");
-  }
-  const data = (await response.json()) as any;
-  const text =
-    data?.candidates?.[0]?.content?.parts
-      ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
-      .join("\n")
-      .trim() ?? "";
+
+  const result = await model.generateContent(prompt);
+  const text = result.response?.text()?.trim() ?? "";
   if (!text) throw new HttpError(500, "Empty response from Gemini");
-  return { text, usage: mapGeminiUsage(data?.usageMetadata, defaultGeminiModel) };
+  return { text, usage: mapGeminiUsage(result.response?.usageMetadata, defaultGeminiModel) };
 };
 
 const buildScriptRefinementPrompt = (params: { script: string; topic?: string }) => {
