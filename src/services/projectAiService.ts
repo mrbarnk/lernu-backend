@@ -5,7 +5,7 @@ import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
 import { AiUsageMetrics } from "./aiUsageService";
 
-export type AiProvider = "openai" | "gemini" | "veo3";
+export type AiProvider = "openai" | "gemini" | "veo";
 export interface AiScene {
   sceneNumber: number;
   description: string;
@@ -19,7 +19,7 @@ const geminiClient = env.geminiApiKey ? new GoogleGenAI({ apiKey: env.geminiApiK
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
 const defaultProvider: AiProvider =
-  env.aiProvider === "gemini" || env.aiProvider === "openai" || env.aiProvider === "veo3"
+  env.aiProvider === "gemini" || env.aiProvider === "openai" || env.aiProvider === "veo"
     ? (env.aiProvider as AiProvider)
     : "openai";
 const defaultStyle: ProjectStyle = "cinematic";
@@ -408,10 +408,10 @@ const generateScenesWithGemini = async (params: {
     refine && script ? await refineScriptWithGemini({ script, topic }) : undefined;
   const scriptForScenes = refinement?.script ?? script;
   const prompt =
-    provider === "veo3"
+    provider === "veo"
       ? buildVeoScenesPrompt(topic, style, scriptForScenes)
       : buildScenesPrompt(topic, sceneCount, style, scriptForScenes);
-  const limit = provider === "veo3" ? undefined : sceneCount;
+  const limit = provider === "veo" ? undefined : sceneCount;
   const { text, usage } = await callGeminiJson({ prompt, temperature: 0.7 });
   const parsed = parseJson(text);
   const scenes = normalizeScenes(parsed, limit);
@@ -448,7 +448,7 @@ export const generateScenesForTopic = async (params: {
   } = params;
   const targetCount = clamp(sceneCount, 1, 20);
 
-  if (provider === "gemini" || provider === "veo3") {
+  if (provider === "gemini" || provider === "veo") {
     return generateScenesWithGemini({
       topic,
       sceneCount: targetCount,
