@@ -39,6 +39,11 @@ Avoid referring to on-camera hosts; focus on what the viewer sees. Always answer
 const SINGLE_SCENE_PROMPT = `You rewrite individual scenes for a faceless video, keeping them concise and visual-first.
 Return a JSON object only.`;
 
+const SCRIPT_REFINE_SYSTEM_PROMPT = `You are a viral short-form content strategist.
+You reshape rough ideas into high-retention faceless scripts with strong hooks and pattern breaks.
+Keep everything voiceover-ready; never mention a host or camera.
+Always answer with JSON only.`;
+
 const parseJson = (content: string) => {
   const cleaned = content
     .trim()
@@ -144,14 +149,82 @@ const requireClient = () => {
   return client;
 };
 
+const buildScriptRefinementPrompt = (params: { script: string; topic?: string }) => {
+  const { script, topic } = params;
+  const lines = [
+    "You are a viral short-form content strategist.",
+    "Refine the topic below into a high-retention faceless video script using this strict structure:",
+    "1. Hook (0-2s, pattern break, curiosity-driven)",
+    "2. One-line context (who / what / where)",
+    "3. Escalation ladder (3-5 short beats, each increasing tension)",
+    "4. Twist / reveal (the share-worthy moment)",
+    "5. Payoff + clear lesson (emotional or practical)",
+    "6. Loop ending (connects back to the hook so the video replays)",
+    "Rules:",
+    '* Faceless narration only (no "I", no on-screen speaker)',
+    "* Short, punchy sentences",
+    "* One dominant emotion throughout",
+    "* No filler, no greetings",
+    "* Spoken, cinematic language",
+    "* 60-90 seconds total",
+    "* End with a replay-worthy final line",
+    "Output format:",
+    "* Label each section clearly",
+    "* After each section, add a short B-roll / visual cue in brackets",
+    "* Keep captions bold and readable for TikTok / Reels / Shorts",
+    `Topic to refine: ${topic ?? "Use the provided script as the idea"}`,
+    "Original script / idea:",
+    script,
+    'Return JSON: { "script": "refined narration ready to split into scenes" }.'
+  ];
+  return lines.join("\n\n");
+};
+
+export const refineScriptForFacelessChannel = async (params: {
+  script: string;
+  topic?: string;
+}): Promise<string> => {
+  const { script, topic } = params;
+  try {
+    const completion = await requireClient().chat.completions.create({
+      model: defaultModel,
+      response_format: { type: "json_object" },
+      temperature: 0.65,
+      messages: [
+        { role: "system", content: SCRIPT_REFINE_SYSTEM_PROMPT },
+        { role: "user", content: buildScriptRefinementPrompt({ script, topic }) }
+      ]
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) throw new Error("Empty response from model");
+    const parsed = parseJson(content);
+    const refined =
+      typeof parsed?.script === "string"
+        ? parsed.script.trim()
+        : typeof parsed === "string"
+          ? parsed.trim()
+          : "";
+    if (!refined) throw new Error("No refined script returned");
+    return refined.slice(0, 5000);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("OpenAI script refinement failed", err);
+    throw new HttpError(500, "Failed to refine script with AI");
+  }
+};
+
 export const generateScenesForTopic = async (params: {
   topic: string;
   sceneCount?: number;
   script?: string;
   style?: ProjectStyle;
+  refine?: boolean;
 }): Promise<AiScene[]> => {
-  const { topic, sceneCount = 4, script, style = defaultStyle } = params;
+  const { topic, sceneCount = 4, script, style = defaultStyle, refine = false } = params;
   const targetCount = clamp(sceneCount, 1, 20);
+  const scriptForScenes =
+    refine && script ? await refineScriptForFacelessChannel({ script, topic }) : script;
   try {
     const completion = await requireClient().chat.completions.create({
       model: defaultModel,
@@ -159,7 +232,7 @@ export const generateScenesForTopic = async (params: {
       temperature: 0.7,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildScenesPrompt(topic, targetCount, style, script) }
+        { role: "user", content: buildScenesPrompt(topic, targetCount, style, scriptForScenes) }
       ]
     });
 

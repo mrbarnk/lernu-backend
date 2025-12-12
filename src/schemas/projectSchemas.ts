@@ -51,7 +51,8 @@ export const createProjectSchema = z.object({
       sceneCount: z.number().int().min(1).max(20).optional(),
       script: z.string().min(1).max(5000).optional(),
       scenes: z.array(sceneInputSchema).max(50).optional(),
-      style: styleEnum.optional()
+      style: styleEnum.optional(),
+      refine: z.boolean().optional()
     })
     .refine(
       (data) =>
@@ -113,7 +114,8 @@ export const generateScenesSchema = z.object({
       topic: z.string().min(1).max(500).optional(),
       sceneCount: z.number().int().min(1).max(20).optional(),
       script: z.string().min(1).max(5000),
-      style: styleEnum.optional()
+      style: styleEnum.optional(),
+      refine: z.boolean().optional()
     })
 });
 

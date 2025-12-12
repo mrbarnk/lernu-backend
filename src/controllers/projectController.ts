@@ -268,7 +268,8 @@ export const createProject = async (req: Request, res: Response) => {
     sceneCount,
     script,
     style,
-    scenes
+    scenes,
+    refine
   } = req.body as {
     title: string;
     topic?: string;
@@ -278,6 +279,7 @@ export const createProject = async (req: Request, res: Response) => {
     script?: string;
     style?: ProjectStyle;
     scenes?: unknown[];
+    refine?: boolean;
   };
   const scriptText = typeof script === "string" ? script : undefined;
   const providedScenes = normalizeInputScenes(scenes ?? []);
@@ -298,8 +300,9 @@ export const createProject = async (req: Request, res: Response) => {
     generatedScenes = await generateScenesForTopic({
       topic: topicValue,
       sceneCount: targetSceneCount,
-      script,
-      style
+      script: scriptText,
+      style,
+      refine
     });
   }
 
@@ -495,11 +498,12 @@ export const reorderScenes = async (req: Request, res: Response) => {
 
 export const generateScenes = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { topic: rawTopic, sceneCount, script, style } = req.body as {
+  const { topic: rawTopic, sceneCount, script, style, refine } = req.body as {
     topic?: string;
     sceneCount?: number;
     script?: string;
     style?: ProjectStyle;
+    refine?: boolean;
   };
 
   const scriptText = typeof script === "string" ? script : undefined;
@@ -518,7 +522,8 @@ export const generateScenes = async (req: Request, res: Response) => {
     topic,
     sceneCount: targetSceneCount,
     script: scriptText,
-    style
+    style,
+    refine
   });
   const totalDuration = scenes.reduce((acc, scene) => acc + (scene.duration ?? 0), 0);
   const averageSceneDuration = scenes.length ? totalDuration / scenes.length : 0;
