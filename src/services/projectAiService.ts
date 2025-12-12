@@ -515,6 +515,26 @@ export const generateVideoWithVeo = async (params: {
   return { videos, operationName };
 };
 
+export const getVeoVideoOperation = async (operationName: string): Promise<{
+  videos?: { uri?: string }[];
+  operationName: string;
+  done: boolean;
+}> => {
+  const clientInstance = requireGeminiClient();
+  const op = await clientInstance.operations.getVideosOperation({
+    operation: { name: operationName } as any
+  });
+  const videos =
+    op.response?.generatedVideos?.map((vid: any) => ({
+      uri: vid?.video?.uri ?? vid?.videoUri ?? vid?.uri
+    })) ?? [];
+  return {
+    videos,
+    operationName: op.name ?? operationName,
+    done: Boolean(videos.length)
+  };
+};
+
 export const regenerateSceneWithAi = async (params: {
   topic: string;
   sceneNumber?: number;

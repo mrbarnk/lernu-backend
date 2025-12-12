@@ -145,3 +145,12 @@ export const generateVideoSchema = z.object({
     })
     .optional()
 });
+
+export const videoStatusSchema = z.object({
+  params: z.object({
+    projectId: z.string()
+  }),
+  query: z.object({
+    operationName: z.string().optional()
+  })
+});

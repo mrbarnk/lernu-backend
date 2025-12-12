@@ -7,7 +7,8 @@ import {
   AiScene,
   generateScenesForTopic,
   regenerateSceneWithAi,
-  generateVideoWithVeo
+  generateVideoWithVeo,
+  getVeoVideoOperation
 } from "../services/projectAiService";
 import { recordAiUsage } from "../services/aiUsageService";
 
@@ -74,6 +75,8 @@ const serializeProject = (project: ProjectDocument & { _id: Types.ObjectId }, sc
   description: project.description,
   script: project.script,
   refinedScript: project.refinedScript,
+  videoUri: project.videoUri,
+  videoProvider: project.videoProvider,
   status: project.status,
   style: project.style,
   createdAt: project.createdAt,
@@ -659,6 +662,11 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
   });
 
   const hasVideo = (videoResult.videos?.length ?? 0) > 0;
+  if (hasVideo) {
+    project.videoUri = videoResult.videos?.[0]?.uri ?? undefined;
+    project.videoProvider = provider;
+    await project.save();
+  }
   res.status(hasVideo ? 200 : 202).json({
     status: hasVideo ? "completed" : "processing",
     provider,
@@ -666,5 +674,36 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
     scenesCount: plannedScenes.length,
     operationName: videoResult.operationName ?? null,
     videos: videoResult.videos ?? []
+  });
+};
+
+export const getProjectVideoStatus = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const project = await ensureProjectOwned(req.params.projectId, req.user._id);
+  const operationName =
+    (req.query.operationName as string | undefined) || project.videoProvider || undefined;
+
+  if (!operationName) {
+    return res.json({
+      status: project.videoUri ? "completed" : "pending",
+      videoUri: project.videoUri ?? null,
+      provider: project.videoProvider ?? null
+    });
+  }
+
+  const op = await getVeoVideoOperation(operationName);
+  const hasVideo = (op.videos?.length ?? 0) > 0;
+
+  if (hasVideo) {
+    project.videoUri = op.videos?.[0]?.uri ?? project.videoUri;
+    project.videoProvider = "veo";
+    await project.save();
+  }
+
+  res.json({
+    status: hasVideo ? "completed" : "processing",
+    videoUri: project.videoUri ?? op.videos?.[0]?.uri ?? null,
+    provider: "veo",
+    operationName: op.operationName
   });
 };
