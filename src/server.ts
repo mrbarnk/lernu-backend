@@ -42,11 +42,27 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 const start = async () => {
-  await connectDatabase();
-  app.listen(env.port, () => {
+  try {
+    await connectDatabase();
+
+    await new Promise<void>((resolve, reject) => {
+      const server = app.listen(env.port, () => {
+        // eslint-disable-next-line no-console
+        console.log(`API listening on port ${env.port}`);
+        resolve();
+      });
+
+      server.on("error", (err: NodeJS.ErrnoException) => {
+        // eslint-disable-next-line no-console
+        console.error(`Failed to start server on port ${env.port}:`, err.message);
+        reject(err);
+      });
+    });
+  } catch (err) {
     // eslint-disable-next-line no-console
-    console.log(`API listening on port ${env.port}`);
-  });
+    console.error("Startup failed:", err);
+    process.exit(1);
+  }
 };
 
 void start();

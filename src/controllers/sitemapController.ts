@@ -35,17 +35,25 @@ export const getSitemap = async (_req: Request, res: Response) => {
     .limit(5000)
     .lean();
 
+  const meetsLength = (text?: string) => {
+    if (!text) return false;
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    return words.length >= 100;
+  };
+
   const base = env.clientUrl.replace(/\/+$/, "");
-  const urls = posts.map((post) => {
-    const loc = `${base}${generatePostUrl({
-      title: post.title,
-      id: post._id.toString(),
-      content: post.content || "",
-      createdAt: post.createdAt.toString()
-    })}`;
-    const lastmod = (post.updatedAt || post.createdAt || new Date()).toISOString();
-    return { loc, lastmod };
-  });
+  const urls = posts
+    .filter((post) => meetsLength(post.content || post.title || ""))
+    .map((post) => {
+      const loc = `${base}${generatePostUrl({
+        title: post.title,
+        id: post._id.toString(),
+        content: post.content || "",
+        createdAt: post.createdAt.toString()
+      })}`;
+      const lastmod = (post.updatedAt || post.createdAt || new Date()).toISOString();
+      return { loc, lastmod };
+    });
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

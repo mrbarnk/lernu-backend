@@ -21,7 +21,7 @@ const projectSceneSchema = new Schema<ProjectSceneDocument>(
     description: { type: String, required: true, trim: true, maxlength: 2000 },
     imagePrompt: { type: String, trim: true, maxlength: 1000 },
     bRollPrompt: { type: String, trim: true, maxlength: 1000 },
-    duration: { type: Number, default: 5, min: 1, max: 5 }
+    duration: { type: Number, default: 5, min: 1, max: 6 }
   },
   {
     timestamps: { createdAt: true, updatedAt: true },

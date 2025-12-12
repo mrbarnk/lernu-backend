@@ -1843,7 +1843,7 @@ components:
         description: { type: string }
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
-        duration: { type: integer, maximum: 5 }
+        duration: { type: integer, maximum: 6 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AiScene:
@@ -1853,7 +1853,7 @@ components:
         description: { type: string }
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
-        duration: { type: integer, maximum: 5 }
+        duration: { type: integer, maximum: 6 }
     Project:
       type: object
       properties:
@@ -1913,7 +1913,7 @@ components:
               description: { type: string }
               imagePrompt: { type: string }
               bRollPrompt: { type: string }
-              duration: { type: integer, minimum: 1, maximum: 5 }
+              duration: { type: integer, minimum: 1, maximum: 6 }
         style:
           type: string
           enum:
@@ -1957,7 +1957,7 @@ components:
         description: { type: string }
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
-        duration: { type: integer, minimum: 1, maximum: 5, description: "Seconds (max 5)" }
+        duration: { type: integer, minimum: 1, maximum: 6, description: "Seconds (max 6)" }
         position: { type: integer, description: "Insert position (1-based)" }
     SceneUpdateRequest:
       type: object
@@ -1965,7 +1965,7 @@ components:
         description: { type: string }
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
-        duration: { type: integer, minimum: 1, maximum: 5, description: "Seconds (max 5)" }
+        duration: { type: integer, minimum: 1, maximum: 6, description: "Seconds (max 6)" }
     SceneReorderRequest:
       type: object
       required: [sceneIds]
