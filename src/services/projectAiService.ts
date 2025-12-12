@@ -112,6 +112,18 @@ const normalizeScenes = (data: any, targetCount: number): AiScene[] => {
     .map((scene: unknown, idx: number) => normalizeScene(scene, idx));
 };
 
+const stringifyScriptPayload = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => stringifyScriptPayload(item)).join("\n");
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, val]) => `${key}: ${stringifyScriptPayload(val)}`)
+      .join("\n");
+  }
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
 const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyle, script?: string) => {
   const parts = [
     `Create ${sceneCount} short scenes for a faceless video. Topic reference: "${topic}".`,
@@ -214,13 +226,8 @@ export const refineScriptForFacelessChannel = async (params: {
     const content = completion.choices[0]?.message?.content;
     if (!content) throw new Error("Empty response from model");
     const parsed = parseJson(content);
-    const refined =
-      typeof parsed?.script === "string"
-        ? parsed.script.trim()
-        : typeof parsed === "string"
-          ? parsed.trim()
-          : "";
-    console.log({content, parsed, refined}, typeof parsed?.script,parsed.script.trim());
+    const rawScript = typeof parsed?.script !== "undefined" ? parsed.script : parsed;
+    const refined = stringifyScriptPayload(rawScript).trim();
     if (!refined) throw new Error("No refined script returned");
     return { script: refined.slice(0, 5000), usage: mapUsage(completion.usage, defaultModel) };
   } catch (err) {
