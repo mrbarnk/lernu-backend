@@ -19,7 +19,7 @@ export const recordAiUsage = async (params: {
   await AiUsage.create({
     userId,
     action,
-    model: usage.model,
+    aiModel: usage.model,
     promptTokens: usage.promptTokens,
     completionTokens: usage.completionTokens,
     totalTokens: usage.totalTokens,

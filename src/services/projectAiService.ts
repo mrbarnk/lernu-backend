@@ -18,7 +18,9 @@ const defaultStyle: ProjectStyle = "cinematic";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const mapUsage = (usage: OpenAI.Chat.Completions.ChatCompletionUsage | null | undefined, model: string): AiUsageMetrics | undefined => {
+type ChatUsage = OpenAI.Chat.Completions.ChatCompletion["usage"] | null | undefined;
+
+const mapUsage = (usage: ChatUsage, model: string): AiUsageMetrics | undefined => {
   if (!usage) return undefined;
   return {
     promptTokens: usage.prompt_tokens ?? 0,
