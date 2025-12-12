@@ -17,6 +17,7 @@ const styleEnum = z.enum([
   "anime",
   "pixer-3d"
 ]);
+const providerEnum = z.enum(["openai", "gemini"]);
 const sceneInputSchema = z.object({
   sceneNumber: z.number().int().min(1).optional(),
   description: z.string().min(1).max(2000),
@@ -52,6 +53,7 @@ export const createProjectSchema = z.object({
       script: z.string().min(1).max(5000).optional(),
       scenes: z.array(sceneInputSchema).max(50).optional(),
       style: styleEnum.optional(),
+      provider: providerEnum.optional(),
       refine: z.boolean().optional()
     })
     .refine(
@@ -115,6 +117,7 @@ export const generateScenesSchema = z.object({
       sceneCount: z.number().int().min(1).max(20).optional(),
       script: z.string().min(1).max(5000),
       style: styleEnum.optional(),
+      provider: providerEnum.optional(),
       refine: z.boolean().optional()
     })
 });

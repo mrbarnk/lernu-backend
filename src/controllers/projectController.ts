@@ -270,6 +270,7 @@ export const createProject = async (req: Request, res: Response) => {
     script,
     style,
     scenes,
+    provider,
     refine
   } = req.body as {
     title: string;
@@ -280,6 +281,7 @@ export const createProject = async (req: Request, res: Response) => {
     script?: string;
     style?: ProjectStyle;
     scenes?: unknown[];
+    provider?: "openai" | "gemini";
     refine?: boolean;
   };
   const scriptText = typeof script === "string" ? script : undefined;
@@ -303,6 +305,7 @@ export const createProject = async (req: Request, res: Response) => {
       sceneCount: targetSceneCount,
       script: scriptText,
       style,
+      provider,
       refine
     });
     generatedScenes = generationResult.scenes;
@@ -310,14 +313,14 @@ export const createProject = async (req: Request, res: Response) => {
       userId: req.user._id,
       action: "project:create:generate-scenes",
       usage: generationResult.usage,
-      metadata: { projectTitle: title }
+      metadata: { projectTitle: title, provider: provider ?? "openai" }
     });
     if (generationResult.refinementUsage) {
       await recordAiUsage({
         userId: req.user._id,
         action: "project:create:refine-script",
         usage: generationResult.refinementUsage,
-        metadata: { projectTitle: title }
+        metadata: { projectTitle: title, provider: provider ?? "openai" }
       });
     }
   }
@@ -514,11 +517,12 @@ export const reorderScenes = async (req: Request, res: Response) => {
 
 export const generateScenes = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { topic: rawTopic, sceneCount, script, style, refine } = req.body as {
+  const { topic: rawTopic, sceneCount, script, style, provider, refine } = req.body as {
     topic?: string;
     sceneCount?: number;
     script?: string;
     style?: ProjectStyle;
+    provider?: "openai" | "gemini";
     refine?: boolean;
   };
 
@@ -539,6 +543,7 @@ export const generateScenes = async (req: Request, res: Response) => {
     sceneCount: targetSceneCount,
     script: scriptText,
     style,
+    provider,
     refine
   });
   const scenes = generationResult.scenes;
@@ -549,14 +554,14 @@ export const generateScenes = async (req: Request, res: Response) => {
     userId: req.user._id,
     action: "project:generate-scenes",
     usage: generationResult.usage,
-    metadata: { topic }
+    metadata: { topic, provider: provider ?? "openai" }
   });
   if (generationResult.refinementUsage) {
     await recordAiUsage({
       userId: req.user._id,
       action: "project:generate-scenes:refine-script",
       usage: generationResult.refinementUsage,
-      metadata: { topic }
+      metadata: { topic, provider: provider ?? "openai" }
     });
   }
 

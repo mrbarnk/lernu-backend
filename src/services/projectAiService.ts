@@ -4,6 +4,7 @@ import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
 import { AiUsageMetrics } from "./aiUsageService";
 
+export type AiProvider = "openai" | "gemini";
 export interface AiScene {
   sceneNumber: number;
   description: string;
@@ -14,6 +15,9 @@ export interface AiScene {
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
+const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
+const defaultProvider: AiProvider =
+  env.aiProvider === "gemini" || env.aiProvider === "openai" ? env.aiProvider : "openai";
 const defaultStyle: ProjectStyle = "cinematic";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -26,6 +30,26 @@ const mapUsage = (usage: ChatUsage, model: string): AiUsageMetrics | undefined =
     promptTokens: usage.prompt_tokens ?? 0,
     completionTokens: usage.completion_tokens ?? 0,
     totalTokens: usage.total_tokens ?? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0),
+    model
+  };
+};
+
+type GeminiUsage =
+  | {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+    }
+  | undefined;
+
+const mapGeminiUsage = (usage: GeminiUsage, model: string): AiUsageMetrics | undefined => {
+  if (!usage) return undefined;
+  return {
+    promptTokens: usage.promptTokenCount ?? 0,
+    completionTokens: usage.candidatesTokenCount ?? 0,
+    totalTokens:
+      usage.totalTokenCount ??
+      (usage.promptTokenCount ?? 0) + (usage.candidatesTokenCount ?? 0),
     model
   };
 };
@@ -186,6 +210,38 @@ const requireClient = () => {
   return client;
 };
 
+const requireGeminiKey = () => {
+  if (!env.geminiApiKey) throw new HttpError(500, "Gemini API key is not configured");
+  return env.geminiApiKey;
+};
+
+const callGeminiJson = async (params: { prompt: string; temperature: number }) => {
+  const { prompt, temperature } = params;
+  const apiKey = requireGeminiKey();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${defaultGeminiModel}:generateContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature }
+    })
+  });
+  if (!response.ok) {
+    // eslint-disable-next-line no-console
+    console.error("Gemini API error", response.status, response.statusText);
+    throw new HttpError(500, "Failed to generate content with Gemini");
+  }
+  const data = (await response.json()) as any;
+  const text =
+    data?.candidates?.[0]?.content?.parts
+      ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+      .join("\n")
+      .trim() ?? "";
+  if (!text) throw new HttpError(500, "Empty response from Gemini");
+  return { text, usage: mapGeminiUsage(data?.usageMetadata, defaultGeminiModel) };
+};
+
 const buildScriptRefinementPrompt = (params: { script: string; topic?: string }) => {
   const { script, topic } = params;
   const lines = [
@@ -247,38 +303,116 @@ export const refineScriptForFacelessChannel = async (params: {
   }
 };
 
+const refineScriptWithGemini = async (params: {
+  script: string;
+  topic?: string;
+}): Promise<{ script: string; usage?: AiUsageMetrics }> => {
+  const { script, topic } = params;
+  try {
+    const prompt = buildScriptRefinementPrompt({ script, topic });
+    const { text, usage } = await callGeminiJson({ prompt, temperature: 0.65 });
+    const parsed = parseJson(text);
+    const rawScript = typeof parsed?.script !== "undefined" ? parsed.script : parsed;
+    const refined = stringifyScriptPayload(rawScript).trim();
+    if (!refined) throw new Error("No refined script returned");
+    return { script: refined.slice(0, 5000), usage };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Gemini script refinement failed", err);
+    throw new HttpError(500, "Failed to refine script with Gemini");
+  }
+};
+
+const generateScenesWithOpenAi = async (params: {
+  topic: string;
+  sceneCount: number;
+  script?: string;
+  style: ProjectStyle;
+  refine: boolean;
+}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
+  const { topic, sceneCount, script, style, refine } = params;
+  const refinement =
+    refine && script ? await refineScriptForFacelessChannel({ script, topic }) : undefined;
+  const scriptForScenes = refinement?.script ?? script;
+  const completion = await requireClient().chat.completions.create({
+    model: defaultModel,
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildScenesPrompt(topic, sceneCount, style, scriptForScenes) }
+    ]
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) throw new Error("Empty response from model");
+  const parsed = parseJson(content);
+  const scenes = normalizeScenes(parsed, sceneCount);
+  return {
+    scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
+    usage: mapUsage(completion.usage, defaultModel),
+    refinementUsage: refinement?.usage
+  };
+};
+
+const generateScenesWithGemini = async (params: {
+  topic: string;
+  sceneCount: number;
+  script?: string;
+  style: ProjectStyle;
+  refine: boolean;
+}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
+  const { topic, sceneCount, script, style, refine } = params;
+  const refinement =
+    refine && script ? await refineScriptWithGemini({ script, topic }) : undefined;
+  const scriptForScenes = refinement?.script ?? script;
+  const prompt = buildScenesPrompt(topic, sceneCount, style, scriptForScenes);
+  const { text, usage } = await callGeminiJson({ prompt, temperature: 0.7 });
+  const parsed = parseJson(text);
+  const scenes = normalizeScenes(parsed, sceneCount);
+  return {
+    scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
+    usage,
+    refinementUsage: refinement?.usage
+  };
+};
+
 export const generateScenesForTopic = async (params: {
   topic: string;
   sceneCount?: number;
   script?: string;
   style?: ProjectStyle;
+  provider?: AiProvider;
   refine?: boolean;
 }): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
-  const { topic, sceneCount = 4, script, style = defaultStyle, refine = false } = params;
+  const {
+    topic,
+    sceneCount = 4,
+    script,
+    style = defaultStyle,
+    provider = defaultProvider,
+    refine = false
+  } = params;
   const targetCount = clamp(sceneCount, 1, 20);
-  const refinement =
-    refine && script ? await refineScriptForFacelessChannel({ script, topic }) : undefined;
-  const scriptForScenes = refinement?.script ?? script;
-  try {
-    const completion = await requireClient().chat.completions.create({
-      model: defaultModel,
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildScenesPrompt(topic, targetCount, style, scriptForScenes) }
-      ]
-    });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) throw new Error("Empty response from model");
-    const parsed = parseJson(content);
-    const scenes = normalizeScenes(parsed, targetCount);
-    return {
-      scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
-      usage: mapUsage(completion.usage, defaultModel),
-      refinementUsage: refinement?.usage
-    };
+  if (provider === "gemini") {
+    return generateScenesWithGemini({
+      topic,
+      sceneCount: targetCount,
+      script,
+      style,
+      refine
+    });
+  }
+
+  try {
+    return await generateScenesWithOpenAi({
+      topic,
+      sceneCount: targetCount,
+      script,
+      style,
+      refine
+    });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("OpenAI scene generation failed", err);

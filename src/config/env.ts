@@ -40,5 +40,8 @@ export const env = {
   smtpFromName: optional("SMTP_FROM_NAME"),
   smtpSecure: (process.env.SMTP_SECURE ?? "false").toLowerCase() === "true",
   openAiApiKey: optional("OPENAI_API_KEY"),
-  openAiModel: optional("OPENAI_MODEL", "gpt-4o-mini")
+  openAiModel: optional("OPENAI_MODEL", "gpt-4o-mini"),
+  geminiApiKey: optional("GEMINI_API_KEY"),
+  geminiModel: optional("GEMINI_MODEL", "gemini-1.5-flash"),
+  aiProvider: optional("AI_PROVIDER", "openai")
 };
