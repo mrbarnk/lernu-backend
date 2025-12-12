@@ -48,6 +48,7 @@ const styleGuidance: Record<ProjectStyle, string> = {
 const SYSTEM_PROMPT = `You are an expert video content planner for short, faceless videos.
 Break topics into clear, sequential scenes with vivid visual direction and matching b-roll ideas.
 Ensure every imagePrompt and bRollPrompt stays consistent with the story's timeline, setting, and emotional arc.
+When a topic or script implies a specific era or location (e.g., 1920s Paris), every visual should reflect that period and place.
 Avoid referring to on-camera hosts; focus on what the viewer sees. Always answer with JSON only.`;
 
 const SINGLE_SCENE_PROMPT = `You rewrite individual scenes for a faceless video, keeping them concise and visual-first.
@@ -114,7 +115,14 @@ const normalizeScenes = (data: any, targetCount: number): AiScene[] => {
 
 const stringifyScriptPayload = (value: unknown): string => {
   if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map((item) => stringifyScriptPayload(item)).join("\n");
+  if (Array.isArray(value)) {
+    return value
+      .map((item, idx) => {
+        const rendered = stringifyScriptPayload(item);
+        return `${idx + 1}. ${rendered}`;
+      })
+      .join("\n");
+  }
   if (value && typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
       .map(([key, val]) => `${key}: ${stringifyScriptPayload(val)}`)
@@ -131,7 +139,8 @@ const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyl
     `Visual style: ${styleGuidance[style]}.`,
     "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
     "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
-    "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish."
+    "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
+    "If the topic or script hints at a historical period or place (e.g., 1920s Paris), explicitly anchor each imagePrompt and bRollPrompt in that era with era-accurate details (fashion, tech, lighting, vehicles, architecture)."
   ];
   if (script) {
     parts.push("Script to split into scenes:");
@@ -153,7 +162,8 @@ const buildRegeneratePrompt = (params: {
   const parts = [
     `Regenerate scene ${sceneNumber ?? 1} for a faceless video on "${topic}".`,
     `Visual style: ${styleGuidance[style]}.`,
-    "Provide fields: description, imagePrompt, bRollPrompt, duration (seconds)."
+    "Provide fields: description, imagePrompt, bRollPrompt, duration (seconds).",
+    "Make every visual cue consistent with any implied era/place in the topic/script/context (e.g., 1920s Paris = period clothing, vintage vehicles, muted film grain, era-accurate props)."
   ];
   if (context) {
     parts.push("Context from nearby scenes to keep continuity:");
