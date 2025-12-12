@@ -226,16 +226,26 @@ const callGeminiJson = async (params: { prompt: string; temperature: number }) =
     config: { temperature, responseMimeType: "application/json" }
   })) as any;
 
-  const text =
-    result?.response?.candidates?.[0]?.content?.parts
-      ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
-      .join("\n")
-      .trim() ?? "";
-  console.log(result?.candidates?.[0]?.content);
-  // console.log("Gemini raw response:", result);
-  console.log({ text }, result?.candidates?.[0]?.content, result?.text());
+  const extractText = (resp: any) => {
+    const parts =
+      resp?.response?.candidates?.[0]?.content?.parts ||
+      resp?.candidates?.[0]?.content?.parts ||
+      resp?.candidates?.[0]?.parts ||
+      resp?.response?.candidates?.[0]?.parts ||
+      [];
+    return (
+      parts
+        .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+        .filter(Boolean)
+        .join("\n")
+        .trim() || ""
+    );
+  };
+
+  const text = extractText(result);
   if (!text) throw new HttpError(500, "Empty response from Gemini");
-  return { text, usage: mapGeminiUsage(result.response?.usageMetadata, defaultGeminiModel) };
+  const usageMeta = result?.response?.usageMetadata ?? result?.usageMetadata;
+  return { text, usage: mapGeminiUsage(usageMeta, defaultGeminiModel) };
 };
 
 const buildScriptRefinementPrompt = (params: { script: string; topic?: string }) => {
