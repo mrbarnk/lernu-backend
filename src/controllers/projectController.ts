@@ -119,7 +119,7 @@ const normalizeInputScenes = (scenes: unknown[]) => {
           ? (scene as any).bRollPrompt.trim().slice(0, 1000)
           : undefined;
       const rawDuration = Number((scene as any)?.duration);
-      const duration = Number.isFinite(rawDuration) ? Math.min(5, Math.max(1, rawDuration)) : 5;
+      const duration = Number.isFinite(rawDuration) ? Math.min(6, Math.max(1, rawDuration)) : 5;
       const sceneNumber =
         typeof (scene as any)?.sceneNumber === "number" && (scene as any).sceneNumber > 0
           ? (scene as any).sceneNumber

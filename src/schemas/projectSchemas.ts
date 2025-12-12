@@ -22,7 +22,7 @@ const sceneInputSchema = z.object({
   description: z.string().min(1).max(2000),
   imagePrompt: z.string().max(1000).optional(),
   bRollPrompt: z.string().max(1000).optional(),
-  duration: z.number().int().min(1).max(5).optional()
+  duration: z.number().int().min(1).max(6).optional()
 });
 
 export const listProjectsSchema = z.object({

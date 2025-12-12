@@ -77,7 +77,7 @@ const normalizeScene = (scene: any, index: number): AiScene => {
     description,
     imagePrompt,
     bRollPrompt,
-    duration: clamp(rawDuration || 5, 1, 5)
+    duration: clamp(rawDuration || 5, 1, 6)
   };
 };
 
@@ -99,7 +99,7 @@ const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyl
     "Use the provided script as the primary source and preserve its order and intent.",
     `Visual style: ${styleGuidance[style]}.`,
     "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
-    "Each scene/b-roll should be no longer than 5 seconds. Keep narration concise, action-oriented, and avoid direct address to camera."
+    "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera."
   ];
   if (script) {
     parts.push("Script to split into scenes:");
