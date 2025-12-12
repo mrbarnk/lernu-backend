@@ -231,7 +231,7 @@ const callGeminiJson = async (params: { prompt: string; temperature: number }) =
       ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
       .join("\n")
       .trim() ?? "";
-  console.log(result?.GenerateContentResponse)
+  console.log(result?.candidates?.[0]?.content);
   // console.log("Gemini raw response:", result);
   console.log({ text }, result?.candidates?.[0]?.content, result?.text());
   if (!text) throw new HttpError(500, "Empty response from Gemini");
