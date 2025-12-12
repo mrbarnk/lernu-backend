@@ -220,6 +220,7 @@ export const refineScriptForFacelessChannel = async (params: {
         : typeof parsed === "string"
           ? parsed.trim()
           : "";
+    console.log({content, parsed, refined});
     if (!refined) throw new Error("No refined script returned");
     return { script: refined.slice(0, 5000), usage: mapUsage(completion.usage, defaultModel) };
   } catch (err) {
