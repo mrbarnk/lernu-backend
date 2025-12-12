@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
+import { AiUsageMetrics } from "./aiUsageService";
 
 export interface AiScene {
   sceneNumber: number;
@@ -16,6 +17,16 @@ const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultStyle: ProjectStyle = "cinematic";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const mapUsage = (usage: OpenAI.Chat.Completions.ChatCompletionUsage | null | undefined, model: string): AiUsageMetrics | undefined => {
+  if (!usage) return undefined;
+  return {
+    promptTokens: usage.prompt_tokens ?? 0,
+    completionTokens: usage.completion_tokens ?? 0,
+    totalTokens: usage.total_tokens ?? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0),
+    model
+  };
+};
 
 const styleGuidance: Record<ProjectStyle, string> = {
   "4k-realistic": "4K ultra-realistic visuals with crisp detail and lifelike textures",
@@ -34,6 +45,7 @@ const styleGuidance: Record<ProjectStyle, string> = {
 
 const SYSTEM_PROMPT = `You are an expert video content planner for short, faceless videos.
 Break topics into clear, sequential scenes with vivid visual direction and matching b-roll ideas.
+Ensure every imagePrompt and bRollPrompt stays consistent with the story's timeline, setting, and emotional arc.
 Avoid referring to on-camera hosts; focus on what the viewer sees. Always answer with JSON only.`;
 
 const SINGLE_SCENE_PROMPT = `You rewrite individual scenes for a faceless video, keeping them concise and visual-first.
@@ -104,7 +116,8 @@ const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyl
     "Use the provided script as the primary source and preserve its order and intent.",
     `Visual style: ${styleGuidance[style]}.`,
     "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
-    "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera."
+    "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
+    "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish."
   ];
   if (script) {
     parts.push("Script to split into scenes:");
@@ -183,7 +196,7 @@ const buildScriptRefinementPrompt = (params: { script: string; topic?: string })
 export const refineScriptForFacelessChannel = async (params: {
   script: string;
   topic?: string;
-}): Promise<string> => {
+}): Promise<{ script: string; usage?: AiUsageMetrics }> => {
   const { script, topic } = params;
   try {
     const completion = await requireClient().chat.completions.create({
@@ -206,7 +219,7 @@ export const refineScriptForFacelessChannel = async (params: {
           ? parsed.trim()
           : "";
     if (!refined) throw new Error("No refined script returned");
-    return refined.slice(0, 5000);
+    return { script: refined.slice(0, 5000), usage: mapUsage(completion.usage, defaultModel) };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("OpenAI script refinement failed", err);
@@ -220,11 +233,12 @@ export const generateScenesForTopic = async (params: {
   script?: string;
   style?: ProjectStyle;
   refine?: boolean;
-}): Promise<AiScene[]> => {
+}): Promise<{ scenes: AiScene[]; usage?: AiUsageMetrics; refinementUsage?: AiUsageMetrics }> => {
   const { topic, sceneCount = 4, script, style = defaultStyle, refine = false } = params;
   const targetCount = clamp(sceneCount, 1, 20);
-  const scriptForScenes =
-    refine && script ? await refineScriptForFacelessChannel({ script, topic }) : script;
+  const refinement =
+    refine && script ? await refineScriptForFacelessChannel({ script, topic }) : undefined;
+  const scriptForScenes = refinement?.script ?? script;
   try {
     const completion = await requireClient().chat.completions.create({
       model: defaultModel,
@@ -240,7 +254,11 @@ export const generateScenesForTopic = async (params: {
     if (!content) throw new Error("Empty response from model");
     const parsed = parseJson(content);
     const scenes = normalizeScenes(parsed, targetCount);
-    return scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 }));
+    return {
+      scenes: scenes.map((scene, idx) => ({ ...scene, sceneNumber: idx + 1 })),
+      usage: mapUsage(completion.usage, defaultModel),
+      refinementUsage: refinement?.usage
+    };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("OpenAI scene generation failed", err);
@@ -255,7 +273,7 @@ export const regenerateSceneWithAi = async (params: {
   instructions?: string;
   script?: string;
   style?: ProjectStyle;
-}): Promise<AiScene> => {
+}): Promise<{ scene: AiScene; usage?: AiUsageMetrics }> => {
   const { topic, sceneNumber, style = defaultStyle } = params;
   try {
     const completion = await requireClient().chat.completions.create({
@@ -279,7 +297,10 @@ export const regenerateSceneWithAi = async (params: {
           ? parsed[0]
           : parsed;
     const normalized = normalizeScene(scenePayload, (sceneNumber ?? 1) - 1);
-    return { ...normalized, sceneNumber: sceneNumber ?? normalized.sceneNumber ?? 1 };
+    return {
+      scene: { ...normalized, sceneNumber: sceneNumber ?? normalized.sceneNumber ?? 1 },
+      usage: mapUsage(completion.usage, defaultModel)
+    };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("OpenAI scene regeneration failed", err);

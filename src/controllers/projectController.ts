@@ -8,6 +8,7 @@ import {
   generateScenesForTopic,
   regenerateSceneWithAi
 } from "../services/projectAiService";
+import { recordAiUsage } from "../services/aiUsageService";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -297,13 +298,28 @@ export const createProject = async (req: Request, res: Response) => {
       10,
       "Too many AI scene generations. Try again later."
     );
-    generatedScenes = await generateScenesForTopic({
+    const generationResult = await generateScenesForTopic({
       topic: topicValue,
       sceneCount: targetSceneCount,
       script: scriptText,
       style,
       refine
     });
+    generatedScenes = generationResult.scenes;
+    await recordAiUsage({
+      userId: req.user._id,
+      action: "project:create:generate-scenes",
+      usage: generationResult.usage,
+      metadata: { projectTitle: title }
+    });
+    if (generationResult.refinementUsage) {
+      await recordAiUsage({
+        userId: req.user._id,
+        action: "project:create:refine-script",
+        usage: generationResult.refinementUsage,
+        metadata: { projectTitle: title }
+      });
+    }
   }
 
   const generatedScenesNormalized: ScenePayload[] = generatedScenes.map((scene, idx) => ({
@@ -518,15 +534,31 @@ export const generateScenes = async (req: Request, res: Response) => {
     "Too many AI scene generations. Try again later."
   );
 
-  const scenes = await generateScenesForTopic({
+  const generationResult = await generateScenesForTopic({
     topic,
     sceneCount: targetSceneCount,
     script: scriptText,
     style,
     refine
   });
+  const scenes = generationResult.scenes;
   const totalDuration = scenes.reduce((acc, scene) => acc + (scene.duration ?? 0), 0);
   const averageSceneDuration = scenes.length ? totalDuration / scenes.length : 0;
+
+  await recordAiUsage({
+    userId: req.user._id,
+    action: "project:generate-scenes",
+    usage: generationResult.usage,
+    metadata: { topic }
+  });
+  if (generationResult.refinementUsage) {
+    await recordAiUsage({
+      userId: req.user._id,
+      action: "project:generate-scenes:refine-script",
+      usage: generationResult.refinementUsage,
+      metadata: { topic }
+    });
+  }
 
   res.json({
     scenes,
@@ -570,11 +602,18 @@ export const regenerateScene = async (req: Request, res: Response) => {
     style: project.style
   });
 
-  scene.description = regenerated.description;
-  scene.imagePrompt = regenerated.imagePrompt;
-  scene.bRollPrompt = regenerated.bRollPrompt;
-  scene.duration = regenerated.duration;
+  scene.description = regenerated.scene.description;
+  scene.imagePrompt = regenerated.scene.imagePrompt;
+  scene.bRollPrompt = regenerated.scene.bRollPrompt;
+  scene.duration = regenerated.scene.duration;
   await scene.save();
+
+  await recordAiUsage({
+    userId: req.user._id,
+    action: "project:scene:regenerate",
+    usage: regenerated.usage,
+    metadata: { projectId: project._id.toString(), sceneId: scene._id.toString() }
+  });
 
   res.json(serializeScene(scene as ProjectSceneDocument & { _id: Types.ObjectId }));
 };
