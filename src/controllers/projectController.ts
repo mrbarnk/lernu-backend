@@ -28,9 +28,24 @@ const ensureObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
 };
 
-type ScenePayload =
-  | (ProjectSceneDocument & { _id: Types.ObjectId })
-  | (ProjectSceneAttrs & { _id: Types.ObjectId; createdAt?: Date; updatedAt?: Date });
+type ScenePayload = {
+  _id: Types.ObjectId;
+  projectId?: Types.ObjectId;
+  sceneNumber: number;
+  description: string;
+  imagePrompt?: string;
+  bRollPrompt?: string;
+  duration?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+const deriveTopicFromScenes = (scenes: ScenePayload[]) => {
+  if (!scenes.length) return undefined;
+  const first = scenes[0]?.description ?? "";
+  const cleaned = first.replace(/\s+/g, " ").trim();
+  return cleaned ? cleaned.slice(0, 120) : undefined;
+};
 
 const computeSceneStats = (scenes: ScenePayload[]) => {
   const scenesCount = scenes.length;
@@ -83,6 +98,43 @@ const parseLimit = (value?: string) =>
   Math.min(MAX_LIMIT, Math.max(1, Number(value) || DEFAULT_LIMIT));
 
 const parseOrder = (order?: string) => (order === "asc" ? 1 : -1);
+
+const normalizeInputScenes = (scenes: unknown[]) => {
+  if (!Array.isArray(scenes)) return [] as ScenePayload[];
+  const maxScenes = 50;
+  return scenes
+    .slice(0, maxScenes)
+    .map((scene, idx) => {
+      const description =
+        typeof (scene as any)?.description === "string"
+          ? (scene as any).description.trim().slice(0, 2000)
+          : "";
+      if (!description) return null;
+      const imagePrompt =
+        typeof (scene as any)?.imagePrompt === "string"
+          ? (scene as any).imagePrompt.trim().slice(0, 1000)
+          : undefined;
+      const bRollPrompt =
+        typeof (scene as any)?.bRollPrompt === "string"
+          ? (scene as any).bRollPrompt.trim().slice(0, 1000)
+          : undefined;
+      const rawDuration = Number((scene as any)?.duration);
+      const duration = Number.isFinite(rawDuration) ? Math.min(5, Math.max(1, rawDuration)) : 5;
+      const sceneNumber =
+        typeof (scene as any)?.sceneNumber === "number" && (scene as any).sceneNumber > 0
+          ? (scene as any).sceneNumber
+          : idx + 1;
+      return {
+        _id: new Types.ObjectId(),
+        sceneNumber,
+        description,
+        imagePrompt,
+        bRollPrompt,
+        duration
+      } as ScenePayload;
+    })
+    .filter((scene): scene is ScenePayload => Boolean(scene));
+};
 
 const buildSceneContext = (scenes: ProjectSceneDocument[], targetSceneNumber: number) => {
   const neighbors = scenes
@@ -215,7 +267,8 @@ export const createProject = async (req: Request, res: Response) => {
     generateScenes: shouldGenerate,
     sceneCount,
     script,
-    style
+    style,
+    scenes
   } = req.body as {
     title: string;
     topic?: string;
@@ -224,15 +277,19 @@ export const createProject = async (req: Request, res: Response) => {
     sceneCount?: number;
     script?: string;
     style?: ProjectStyle;
+    scenes?: unknown[];
   };
   const scriptText = typeof script === "string" ? script : undefined;
-  const topicValue = topic ?? deriveTopicFromScript(scriptText);
-  if (!topicValue) throw new HttpError(400, "Topic or script is required");
+  const providedScenes = normalizeInputScenes(scenes ?? []);
+
+  const topicValue = topic ?? deriveTopicFromScript(scriptText) ?? deriveTopicFromScenes(providedScenes);
+  if (!topicValue) throw new HttpError(400, "Topic, script, or scene descriptions are required");
 
   const targetSceneCount = sceneCount ?? estimateSceneCountFromScript(scriptText);
 
   let generatedScenes: AiScene[] = [];
   if (shouldGenerate) {
+    if (!scriptText) throw new HttpError(400, "Script is required to generate scenes");
     enforceAiRateLimit(
       `${req.user._id.toString()}:generate`,
       10,
@@ -246,6 +303,17 @@ export const createProject = async (req: Request, res: Response) => {
     });
   }
 
+  const generatedScenesNormalized: ScenePayload[] = generatedScenes.map((scene, idx) => ({
+    _id: new Types.ObjectId(),
+    sceneNumber: scene.sceneNumber ?? idx + 1,
+    description: scene.description,
+    imagePrompt: scene.imagePrompt,
+    bRollPrompt: scene.bRollPrompt,
+    duration: scene.duration
+  }));
+
+  const scenesToInsert: ScenePayload[] = providedScenes.length ? providedScenes : generatedScenesNormalized;
+
   const project = await Project.create({
     userId: req.user._id,
     title,
@@ -255,9 +323,17 @@ export const createProject = async (req: Request, res: Response) => {
     status: shouldGenerate ? "in-progress" : "draft"
   });
 
-  if (generatedScenes.length) {
+  if (scenesToInsert.length) {
+    const sortedScenes = scenesToInsert
+      .map((scene, idx) => ({
+        ...scene,
+        projectId: project._id,
+        sceneNumber: scene.sceneNumber ?? idx + 1
+      }))
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
     await ProjectScene.insertMany(
-      generatedScenes.map((scene) => ({
+      sortedScenes.map((scene) => ({
         projectId: project._id,
         sceneNumber: scene.sceneNumber,
         description: scene.description,
@@ -268,13 +344,18 @@ export const createProject = async (req: Request, res: Response) => {
     );
   }
 
-  const scenes = generatedScenes.length
+  const projectScenes = scenesToInsert.length
     ? await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 }).lean()
     : [];
 
   res
     .status(201)
-    .json(serializeProject(project as ProjectDocument & { _id: Types.ObjectId }, scenes as ScenePayload[]));
+    .json(
+      serializeProject(
+        project as ProjectDocument & { _id: Types.ObjectId },
+        projectScenes as ScenePayload[]
+      )
+    );
 };
 
 export const updateProject = async (req: Request, res: Response) => {
@@ -422,8 +503,9 @@ export const generateScenes = async (req: Request, res: Response) => {
   };
 
   const scriptText = typeof script === "string" ? script : undefined;
+  if (!scriptText) throw new HttpError(400, "Script is required");
   const topic = rawTopic ?? deriveTopicFromScript(scriptText);
-  if (!topic) throw new HttpError(400, "Script or topic is required");
+  if (!topic) throw new HttpError(400, "Script is required to derive a topic");
   const targetSceneCount = sceneCount ?? estimateSceneCountFromScript(scriptText);
 
   enforceAiRateLimit(

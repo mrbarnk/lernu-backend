@@ -95,16 +95,15 @@ const normalizeScenes = (data: any, targetCount: number): AiScene[] => {
 
 const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyle, script?: string) => {
   const parts = [
-    `Create ${sceneCount} short scenes for a faceless video on "${topic}".`,
+    `Create ${sceneCount} short scenes for a faceless video. Topic reference: "${topic}".`,
+    "Use the provided script as the primary source and preserve its order and intent.",
     `Visual style: ${styleGuidance[style]}.`,
     "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
     "Each scene/b-roll should be no longer than 5 seconds. Keep narration concise, action-oriented, and avoid direct address to camera."
   ];
   if (script) {
-    parts.push("Break the user's script into scenes while keeping the tone and key points:");
+    parts.push("Script to split into scenes:");
     parts.push(script);
-  } else {
-    parts.push("If details are missing, make smart assumptions that help teach or explain the topic.");
   }
   parts.push("Return a JSON object with a single key 'scenes' containing the array.");
   return parts.join("\n\n");

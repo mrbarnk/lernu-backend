@@ -1328,7 +1328,7 @@ paths:
 
   /api/projects/generate-scenes:
     post:
-      summary: Generate scenes for a topic or script
+      summary: Generate scenes from a script (topic optional)
       security:
         - bearerAuth: []
       requestBody:
@@ -1899,7 +1899,21 @@ components:
         description: { type: string }
         generateScenes: { type: boolean }
         sceneCount: { type: integer, minimum: 1, maximum: 20 }
-        script: { type: string, description: "User-provided script to split into 5s scenes" }
+        script:
+          type: string
+          description: "User-provided script to split into 5s scenes (required when generateScenes is true)"
+        scenes:
+          type: array
+          maxItems: 50
+          description: "Optional scenes to save with the project"
+          items:
+            type: object
+            properties:
+              sceneNumber: { type: integer, description: "Defaults to order provided" }
+              description: { type: string }
+              imagePrompt: { type: string }
+              bRollPrompt: { type: string }
+              duration: { type: integer, minimum: 1, maximum: 5 }
         style:
           type: string
           enum:
@@ -1968,10 +1982,13 @@ components:
         script: { type: string }
     GenerateScenesRequest:
       type: object
+      required: [script]
       properties:
         topic: { type: string }
-        script: { type: string }
-        sceneCount: { type: integer, minimum: 1, maximum: 20 }
+        script:
+          type: string
+          description: "Script text to split into scenes (required)"
+      sceneCount: { type: integer, minimum: 1, maximum: 20 }
         style:
           type: string
           enum:

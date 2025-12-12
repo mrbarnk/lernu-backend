@@ -17,6 +17,13 @@ const styleEnum = z.enum([
   "anime",
   "pixer-3d"
 ]);
+const sceneInputSchema = z.object({
+  sceneNumber: z.number().int().min(1).optional(),
+  description: z.string().min(1).max(2000),
+  imagePrompt: z.string().max(1000).optional(),
+  bRollPrompt: z.string().max(1000).optional(),
+  duration: z.number().int().min(1).max(5).optional()
+});
 
 export const listProjectsSchema = z.object({
   query: z.object({
@@ -43,9 +50,16 @@ export const createProjectSchema = z.object({
       generateScenes: z.boolean().optional(),
       sceneCount: z.number().int().min(1).max(20).optional(),
       script: z.string().min(1).max(5000).optional(),
+      scenes: z.array(sceneInputSchema).max(50).optional(),
       style: styleEnum.optional()
     })
-    .refine((data) => Boolean(data.topic || data.script), "Provide a topic or a script")
+    .refine(
+      (data) =>
+        data.generateScenes
+          ? Boolean(data.script)
+          : Boolean(data.topic || data.script || (data.scenes && data.scenes.length > 0)),
+      "Provide a script when auto-generating, or include topic/script/scenes"
+    )
 });
 
 export const updateProjectSchema = z.object({
@@ -98,13 +112,9 @@ export const generateScenesSchema = z.object({
     .object({
       topic: z.string().min(1).max(500).optional(),
       sceneCount: z.number().int().min(1).max(20).optional(),
-      script: z.string().min(1).max(5000).optional(),
+      script: z.string().min(1).max(5000),
       style: styleEnum.optional()
     })
-    .refine(
-      (data) => Boolean(data.topic || data.script),
-      "Provide a topic or a script to generate scenes"
-    )
 });
 
 export const regenerateSceneSchema = z.object({
