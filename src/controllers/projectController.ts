@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { FilterQuery, SortOrder, Types } from "mongoose";
-import { Project, ProjectDocument, ProjectStatus } from "../models/Project";
+import { Project, ProjectDocument, ProjectStatus, ProjectStyle } from "../models/Project";
 import { ProjectScene, ProjectSceneAttrs, ProjectSceneDocument } from "../models/ProjectScene";
 import { HttpError } from "../middleware/error";
 import {
@@ -56,6 +56,7 @@ const serializeProject = (project: ProjectDocument & { _id: Types.ObjectId }, sc
   topic: project.topic,
   description: project.description,
   status: project.status,
+  style: project.style,
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
   ...(scenes
@@ -179,6 +180,7 @@ export const listProjects = async (req: Request, res: Response) => {
     topic: project.topic,
     description: project.description,
     status: project.status,
+    style: project.style,
     scenesCount: stats.get(project._id.toString())?.scenesCount ?? 0,
     totalDuration: stats.get(project._id.toString())?.totalDuration ?? 0,
     averageSceneDuration:
@@ -206,7 +208,23 @@ export const getProject = async (req: Request, res: Response) => {
 
 export const createProject = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { title, topic, description, generateScenes: shouldGenerate, sceneCount, script } = req.body;
+  const {
+    title,
+    topic,
+    description,
+    generateScenes: shouldGenerate,
+    sceneCount,
+    script,
+    style
+  } = req.body as {
+    title: string;
+    topic?: string;
+    description?: string;
+    generateScenes?: boolean;
+    sceneCount?: number;
+    script?: string;
+    style?: ProjectStyle;
+  };
   const scriptText = typeof script === "string" ? script : undefined;
   const topicValue = topic ?? deriveTopicFromScript(scriptText);
   if (!topicValue) throw new HttpError(400, "Topic or script is required");
@@ -220,7 +238,12 @@ export const createProject = async (req: Request, res: Response) => {
       10,
       "Too many AI scene generations. Try again later."
     );
-    generatedScenes = await generateScenesForTopic({ topic: topicValue, sceneCount: targetSceneCount, script });
+    generatedScenes = await generateScenesForTopic({
+      topic: topicValue,
+      sceneCount: targetSceneCount,
+      script,
+      style
+    });
   }
 
   const project = await Project.create({
@@ -228,6 +251,7 @@ export const createProject = async (req: Request, res: Response) => {
     title,
     topic: topicValue,
     description,
+    style,
     status: shouldGenerate ? "in-progress" : "draft"
   });
 
@@ -256,15 +280,17 @@ export const createProject = async (req: Request, res: Response) => {
 export const updateProject = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.id, req.user._id);
-  const { title, description, status } = req.body as {
+  const { title, description, status, style } = req.body as {
     title?: string;
     description?: string;
     status?: ProjectStatus;
+    style?: ProjectStyle;
   };
 
   if (title !== undefined) project.title = title;
   if (description !== undefined) project.description = description;
   if (status !== undefined) project.status = status;
+  if (style !== undefined) project.style = style;
 
   await project.save();
 
@@ -388,10 +414,11 @@ export const reorderScenes = async (req: Request, res: Response) => {
 
 export const generateScenes = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { topic: rawTopic, sceneCount, script } = req.body as {
+  const { topic: rawTopic, sceneCount, script, style } = req.body as {
     topic?: string;
     sceneCount?: number;
     script?: string;
+    style?: ProjectStyle;
   };
 
   const scriptText = typeof script === "string" ? script : undefined;
@@ -405,7 +432,12 @@ export const generateScenes = async (req: Request, res: Response) => {
     "Too many AI scene generations. Try again later."
   );
 
-  const scenes = await generateScenesForTopic({ topic, sceneCount: targetSceneCount, script: scriptText });
+  const scenes = await generateScenesForTopic({
+    topic,
+    sceneCount: targetSceneCount,
+    script: scriptText,
+    style
+  });
   const totalDuration = scenes.reduce((acc, scene) => acc + (scene.duration ?? 0), 0);
   const averageSceneDuration = scenes.length ? totalDuration / scenes.length : 0;
 
@@ -447,7 +479,8 @@ export const regenerateScene = async (req: Request, res: Response) => {
     sceneNumber: scene.sceneNumber,
     context,
     instructions,
-    script
+    script,
+    style: project.style
   });
 
   scene.description = regenerated.description;

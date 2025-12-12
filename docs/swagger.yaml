@@ -1273,6 +1273,287 @@ paths:
                   url:
                     type: string
 
+  /api/projects:
+    get:
+      summary: List projects
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, maximum: 50 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [draft, in-progress, completed] }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [createdAt, updatedAt, title], default: updatedAt }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+                  nextCursor:
+                    type: string
+                    nullable: true
+    post:
+      summary: Create project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+
+  /api/projects/generate-scenes:
+    post:
+      summary: Generate scenes for a topic or script
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScenesRequest'
+      responses:
+        "200":
+          description: Generated scenes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateScenesResponse'
+
+  /api/projects/{id}:
+    get:
+      summary: Get project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateRequest'
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/projects/{projectId}/scenes:
+    post:
+      summary: Add scene
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneCreateRequest'
+      responses:
+        "201":
+          description: Created scene
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectScene'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/projects/{projectId}/scenes/{sceneId}:
+    patch:
+      summary: Update scene
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: sceneId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneUpdateRequest'
+      responses:
+        "200":
+          description: Updated scene
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectScene'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete scene
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: sceneId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/projects/{projectId}/scenes/reorder:
+    put:
+      summary: Reorder scenes
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneReorderRequest'
+      responses:
+        "200":
+          description: Reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  scenes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        sceneNumber: { type: integer }
+
+  /api/projects/{projectId}/scenes/{sceneId}/regenerate:
+    post:
+      summary: Regenerate a scene with AI
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: sceneId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateSceneRequest'
+      responses:
+        "200":
+          description: Regenerated scene
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectScene'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1554,6 +1835,167 @@ components:
         urls:
           type: array
           items: { type: string }
+    ProjectScene:
+      type: object
+      properties:
+        id: { type: string }
+        sceneNumber: { type: integer }
+        description: { type: string }
+        imagePrompt: { type: string }
+        bRollPrompt: { type: string }
+        duration: { type: integer, maximum: 5 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AiScene:
+      type: object
+      properties:
+        sceneNumber: { type: integer }
+        description: { type: string }
+        imagePrompt: { type: string }
+        bRollPrompt: { type: string }
+        duration: { type: integer, maximum: 5 }
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        topic: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [draft, in-progress, completed] }
+        style:
+          type: string
+          enum:
+            - 4k-realistic
+            - clay
+            - cinematic
+            - brick
+            - grudge
+            - comic-book
+            - muppet
+            - ghibli
+            - playground
+            - voxel
+            - anime
+            - pixer-3d
+        scenesCount: { type: integer }
+        totalDuration: { type: number, description: "Total duration of scenes (seconds)" }
+        averageSceneDuration: { type: number, description: "Average duration per scene (seconds)" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProjectDetail:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            scenes:
+              type: array
+              items: { $ref: '#/components/schemas/ProjectScene' }
+    ProjectCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        topic: { type: string, description: "Derived from script if omitted" }
+        description: { type: string }
+        generateScenes: { type: boolean }
+        sceneCount: { type: integer, minimum: 1, maximum: 20 }
+        script: { type: string, description: "User-provided script to split into 5s scenes" }
+        style:
+          type: string
+          enum:
+            - 4k-realistic
+            - clay
+            - cinematic
+            - brick
+            - grudge
+            - comic-book
+            - muppet
+            - ghibli
+            - playground
+            - voxel
+            - anime
+            - pixer-3d
+    ProjectUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [draft, in-progress, completed] }
+        style:
+          type: string
+          enum:
+            - 4k-realistic
+            - clay
+            - cinematic
+            - brick
+            - grudge
+            - comic-book
+            - muppet
+            - ghibli
+            - playground
+            - voxel
+            - anime
+            - pixer-3d
+    SceneCreateRequest:
+      type: object
+      required: [description]
+      properties:
+        description: { type: string }
+        imagePrompt: { type: string }
+        bRollPrompt: { type: string }
+        duration: { type: integer, minimum: 1, maximum: 5, description: "Seconds (max 5)" }
+        position: { type: integer, description: "Insert position (1-based)" }
+    SceneUpdateRequest:
+      type: object
+      properties:
+        description: { type: string }
+        imagePrompt: { type: string }
+        bRollPrompt: { type: string }
+        duration: { type: integer, minimum: 1, maximum: 5, description: "Seconds (max 5)" }
+    SceneReorderRequest:
+      type: object
+      required: [sceneIds]
+      properties:
+        sceneIds:
+          type: array
+          items: { type: string }
+    RegenerateSceneRequest:
+      type: object
+      properties:
+        context: { type: string }
+        instructions: { type: string }
+        topic: { type: string }
+        script: { type: string }
+    GenerateScenesRequest:
+      type: object
+      properties:
+        topic: { type: string }
+        script: { type: string }
+        sceneCount: { type: integer, minimum: 1, maximum: 20 }
+        style:
+          type: string
+          enum:
+            - 4k-realistic
+            - clay
+            - cinematic
+            - brick
+            - grudge
+            - comic-book
+            - muppet
+            - ghibli
+            - playground
+            - voxel
+            - anime
+            - pixer-3d
+    GenerateScenesResponse:
+      type: object
+      properties:
+        scenes:
+          type: array
+          items: { $ref: '#/components/schemas/AiScene' }
+        totalDuration: { type: number, description: "Total seconds across scenes" }
+        averageSceneDuration: { type: number, description: "Average seconds per scene" }
+        bRollCount: { type: integer, description: "Number of scene/b-roll prompts" }
 
     PostPage:
       type: object

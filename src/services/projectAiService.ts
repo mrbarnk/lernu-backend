@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
+import { ProjectStyle } from "../models/Project";
 
 export interface AiScene {
   sceneNumber: number;
@@ -12,8 +13,24 @@ export interface AiScene {
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
+const defaultStyle: ProjectStyle = "cinematic";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const styleGuidance: Record<ProjectStyle, string> = {
+  "4k-realistic": "4K ultra-realistic visuals with crisp detail and lifelike textures",
+  clay: "stop-motion clay characters and props, soft lighting, handcrafted feel",
+  cinematic: "cinematic lighting, shallow depth of field, dramatic framing",
+  brick: "built from LEGO/brick-style pieces, colorful studs and blocky forms",
+  grudge: "gritty, moody, high contrast with subtle film grain",
+  "comic-book": "inked outlines, halftone shading, bold colors and dynamic angles",
+  muppet: "felt textures, puppet-style characters with expressive eyes",
+  ghibli: "Studio Ghibli-inspired, painterly backgrounds and gentle lighting",
+  playground: "whimsical, toy-like, soft gradients and playful geometry",
+  voxel: "3D voxel art, blocky depth, isometric-friendly lighting",
+  anime: "anime-style characters, clean lines, vivid color, energetic compositions",
+  "pixer-3d": "Pixar-like 3D, soft global illumination, expressive characters"
+};
 
 const SYSTEM_PROMPT = `You are an expert video content planner for short, faceless videos.
 Break topics into clear, sequential scenes with vivid visual direction and matching b-roll ideas.
@@ -76,9 +93,10 @@ const normalizeScenes = (data: any, targetCount: number): AiScene[] => {
     .map((scene: unknown, idx: number) => normalizeScene(scene, idx));
 };
 
-const buildScenesPrompt = (topic: string, sceneCount: number, script?: string) => {
+const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyle, script?: string) => {
   const parts = [
     `Create ${sceneCount} short scenes for a faceless video on "${topic}".`,
+    `Visual style: ${styleGuidance[style]}.`,
     "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
     "Each scene/b-roll should be no longer than 5 seconds. Keep narration concise, action-oriented, and avoid direct address to camera."
   ];
@@ -98,10 +116,12 @@ const buildRegeneratePrompt = (params: {
   context?: string;
   instructions?: string;
   script?: string;
+  style: ProjectStyle;
 }) => {
-  const { topic, sceneNumber, context, instructions, script } = params;
+  const { topic, sceneNumber, context, instructions, script, style } = params;
   const parts = [
     `Regenerate scene ${sceneNumber ?? 1} for a faceless video on "${topic}".`,
+    `Visual style: ${styleGuidance[style]}.`,
     "Provide fields: description, imagePrompt, bRollPrompt, duration (seconds)."
   ];
   if (context) {
@@ -129,8 +149,9 @@ export const generateScenesForTopic = async (params: {
   topic: string;
   sceneCount?: number;
   script?: string;
+  style?: ProjectStyle;
 }): Promise<AiScene[]> => {
-  const { topic, sceneCount = 4, script } = params;
+  const { topic, sceneCount = 4, script, style = defaultStyle } = params;
   const targetCount = clamp(sceneCount, 1, 20);
   try {
     const completion = await requireClient().chat.completions.create({
@@ -139,7 +160,7 @@ export const generateScenesForTopic = async (params: {
       temperature: 0.7,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildScenesPrompt(topic, targetCount, script) }
+        { role: "user", content: buildScenesPrompt(topic, targetCount, style, script) }
       ]
     });
 
@@ -161,8 +182,9 @@ export const regenerateSceneWithAi = async (params: {
   context?: string;
   instructions?: string;
   script?: string;
+  style?: ProjectStyle;
 }): Promise<AiScene> => {
-  const { topic, sceneNumber } = params;
+  const { topic, sceneNumber, style = defaultStyle } = params;
   try {
     const completion = await requireClient().chat.completions.create({
       model: defaultModel,
@@ -170,7 +192,7 @@ export const regenerateSceneWithAi = async (params: {
       temperature: 0.75,
       messages: [
         { role: "system", content: SINGLE_SCENE_PROMPT },
-        { role: "user", content: buildRegeneratePrompt(params) }
+        { role: "user", content: buildRegeneratePrompt({ ...params, style }) }
       ]
     });
 

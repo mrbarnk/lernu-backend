@@ -3,6 +3,20 @@ import { z } from "zod";
 const statusEnum = z.enum(["draft", "in-progress", "completed"]);
 const sortEnum = z.enum(["createdAt", "updatedAt", "title"]);
 const orderEnum = z.enum(["asc", "desc"]);
+const styleEnum = z.enum([
+  "4k-realistic",
+  "clay",
+  "cinematic",
+  "brick",
+  "grudge",
+  "comic-book",
+  "muppet",
+  "ghibli",
+  "playground",
+  "voxel",
+  "anime",
+  "pixer-3d"
+]);
 
 export const listProjectsSchema = z.object({
   query: z.object({
@@ -28,7 +42,8 @@ export const createProjectSchema = z.object({
       description: z.string().max(2000).optional(),
       generateScenes: z.boolean().optional(),
       sceneCount: z.number().int().min(1).max(20).optional(),
-      script: z.string().min(1).max(5000).optional()
+      script: z.string().min(1).max(5000).optional(),
+      style: styleEnum.optional()
     })
     .refine((data) => Boolean(data.topic || data.script), "Provide a topic or a script")
 });
@@ -38,7 +53,8 @@ export const updateProjectSchema = z.object({
   body: z.object({
     title: z.string().min(1).max(200).optional(),
     description: z.string().max(2000).optional(),
-    status: statusEnum.optional()
+    status: statusEnum.optional(),
+    style: styleEnum.optional()
   })
 });
 
@@ -82,7 +98,8 @@ export const generateScenesSchema = z.object({
     .object({
       topic: z.string().min(1).max(500).optional(),
       sceneCount: z.number().int().min(1).max(20).optional(),
-      script: z.string().min(1).max(5000).optional()
+      script: z.string().min(1).max(5000).optional(),
+      style: styleEnum.optional()
     })
     .refine(
       (data) => Boolean(data.topic || data.script),

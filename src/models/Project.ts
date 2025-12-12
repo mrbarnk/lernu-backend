@@ -1,6 +1,19 @@
 import { Document, Model, Schema, Types, model } from "mongoose";
 
 export type ProjectStatus = "draft" | "in-progress" | "completed";
+export type ProjectStyle =
+  | "4k-realistic"
+  | "clay"
+  | "cinematic"
+  | "brick"
+  | "grudge"
+  | "comic-book"
+  | "muppet"
+  | "ghibli"
+  | "playground"
+  | "voxel"
+  | "anime"
+  | "pixer-3d";
 
 export interface ProjectAttrs {
   userId: Types.ObjectId;
@@ -8,6 +21,7 @@ export interface ProjectAttrs {
   topic: string;
   description?: string;
   status?: ProjectStatus;
+  style?: ProjectStyle;
 }
 
 export interface ProjectDocument extends Document, ProjectAttrs {
@@ -25,6 +39,24 @@ const projectSchema = new Schema<ProjectDocument>(
       type: String,
       enum: ["draft", "in-progress", "completed"],
       default: "draft"
+    },
+    style: {
+      type: String,
+      enum: [
+        "4k-realistic",
+        "clay",
+        "cinematic",
+        "brick",
+        "grudge",
+        "comic-book",
+        "muppet",
+        "ghibli",
+        "playground",
+        "voxel",
+        "anime",
+        "pixer-3d"
+      ],
+      default: "cinematic"
     }
   },
   {
