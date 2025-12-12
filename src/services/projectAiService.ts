@@ -196,6 +196,27 @@ const buildVeoScenesPrompt = (topic: string, style: ProjectStyle, script?: strin
   return parts.join("\n\n");
 };
 
+const buildVeoVideoPrompt = (params: {
+  topic: string;
+  scenes: AiScene[];
+  style: ProjectStyle;
+}) => {
+  const { topic, scenes, style } = params;
+  const lines = [
+    `Generate a faceless short video (~8 seconds) for the topic "${topic}".`,
+    `Visual style: ${styleGuidance[style]}.`,
+    "Use the provided ordered scenes as the voiceover lines; keep visuals tightly aligned to each line's era/location/tone.",
+    "Return cinematic shots that can stitch together seamlessly; maintain historical/setting consistency across all shots.",
+    "Voiceover + visual plan:",
+    ...scenes.map(
+      (scene) =>
+        `Scene ${scene.sceneNumber}: VO="${scene.description}" | imagePrompt="${scene.imagePrompt}" | bRollPrompt="${scene.bRollPrompt}" | duration=${scene.duration || 2}s`
+    ),
+    "Do not add a host. Keep narration as provided. Ensure era-accurate props/wardrobe if implied (e.g., 1920s Paris)."
+  ];
+  return lines.join("\n");
+};
+
 const buildRegeneratePrompt = (params: {
   topic: string;
   sceneNumber?: number;
@@ -472,6 +493,26 @@ export const generateScenesForTopic = async (params: {
     console.error("OpenAI scene generation failed", err);
     throw new HttpError(500, "Failed to generate scenes with AI");
   }
+};
+
+export const generateVideoWithVeo = async (params: {
+  topic: string;
+  scenes: AiScene[];
+  style: ProjectStyle;
+}): Promise<{ videos?: { uri?: string }[]; operationName?: string }> => {
+  const { topic, scenes, style } = params;
+  const clientInstance = requireGeminiClient();
+  const prompt = buildVeoVideoPrompt({ topic, scenes, style });
+  const operation = await clientInstance.models.generateVideos({
+    model: "veo-2.0-generate-001",
+    source: { prompt }
+  });
+  const videos =
+    operation.response?.generatedVideos?.map((vid: any) => ({
+      uri: vid?.video?.uri ?? vid?.videoUri ?? vid?.uri
+    })) ?? [];
+  const operationName = operation.name ?? (operation as any)?.response?.name;
+  return { videos, operationName };
 };
 
 export const regenerateSceneWithAi = async (params: {

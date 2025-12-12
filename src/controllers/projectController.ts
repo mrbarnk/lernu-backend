@@ -6,7 +6,8 @@ import { HttpError } from "../middleware/error";
 import {
   AiScene,
   generateScenesForTopic,
-  regenerateSceneWithAi
+  regenerateSceneWithAi,
+  generateVideoWithVeo
 } from "../services/projectAiService";
 import { recordAiUsage } from "../services/aiUsageService";
 
@@ -634,16 +635,36 @@ export const regenerateScene = async (req: Request, res: Response) => {
 export const generateProjectVideo = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.projectId, req.user._id);
-  const provider = (req.body?.provider as "openai" | "gemini" | undefined) ?? "gemini";
+  const provider = (req.body?.provider as "openai" | "gemini" | "veo" | undefined) ?? "veo";
   const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
 
   if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a video");
 
-  // Placeholder until video rendering pipeline is implemented.
-  res.status(501).json({
-    error: "Video generation not implemented yet",
+  if (provider !== "veo") {
+    throw new HttpError(400, "Only provider 'veo' is supported for video generation");
+  }
+
+  const plannedScenes: AiScene[] = scenes.map((scene, idx) => ({
+    sceneNumber: scene.sceneNumber ?? idx + 1,
+    description: scene.description,
+    imagePrompt: scene.imagePrompt ?? "",
+    bRollPrompt: scene.bRollPrompt ?? "",
+    duration: scene.duration ?? 2
+  }));
+
+  const videoResult = await generateVideoWithVeo({
+    topic: project.topic,
+    scenes: plannedScenes,
+    style: project.style ?? "cinematic"
+  });
+
+  const hasVideo = (videoResult.videos?.length ?? 0) > 0;
+  res.status(hasVideo ? 200 : 202).json({
+    status: hasVideo ? "completed" : "processing",
     provider,
     projectId: project._id.toString(),
-    scenesCount: scenes.length
+    scenesCount: plannedScenes.length,
+    operationName: videoResult.operationName ?? null,
+    videos: videoResult.videos ?? []
   });
 };

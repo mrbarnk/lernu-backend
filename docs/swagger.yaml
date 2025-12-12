@@ -1345,6 +1345,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/GenerateScenesResponse'
 
+  /api/projects/{projectId}/video:
+    post:
+      summary: Generate a video for a project (placeholder)
+      description: |
+        Kicks off AI video generation using the project's scenes. Currently returns 501 until the video pipeline is implemented.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateVideoRequest'
+      responses:
+        "501":
+          description: Not implemented
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  provider:
+                    type: string
+                  projectId:
+                    type: string
+                  scenesCount:
+                    type: integer
+
   /api/projects/{id}:
     get:
       summary: Get project
@@ -2013,6 +2047,12 @@ components:
         totalDuration: { type: number, description: "Total seconds across scenes" }
         averageSceneDuration: { type: number, description: "Average seconds per scene" }
         bRollCount: { type: integer, description: "Number of scene/b-roll prompts" }
+    GenerateVideoRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [openai, gemini, veo]
 
     PostPage:
       type: object
