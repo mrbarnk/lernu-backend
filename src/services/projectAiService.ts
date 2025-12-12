@@ -231,6 +231,7 @@ const callGeminiJson = async (params: { prompt: string; temperature: number }) =
       ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
       .join("\n")
       .trim() ?? "";
+  console.log({ text }, result?.response?.candidates?.[0]?.content);
   if (!text) throw new HttpError(500, "Empty response from Gemini");
   return { text, usage: mapGeminiUsage(result.response?.usageMetadata, defaultGeminiModel) };
 };
@@ -454,3 +455,10 @@ export const regenerateSceneWithAi = async (params: {
     throw new HttpError(500, "Failed to regenerate scene with AI");
   }
 };
+
+
+(async () => {
+  const clientInstance = requireGeminiClient();
+  const result = (await clientInstance.models.list({})) as any;
+  console.log("Gemini models available:", result.pageInternal.map((m: any) => m.name));
+})();
