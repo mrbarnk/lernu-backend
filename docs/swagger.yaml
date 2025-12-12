@@ -1988,7 +1988,7 @@ components:
         script:
           type: string
           description: "Script text to split into scenes (required)"
-      sceneCount: { type: integer, minimum: 1, maximum: 20 }
+        sceneCount: { type: integer, minimum: 1, maximum: 20 }
         style:
           type: string
           enum:
