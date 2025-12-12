@@ -134,3 +134,14 @@ export const regenerateSceneSchema = z.object({
     script: z.string().max(5000).optional()
   })
 });
+
+export const generateVideoSchema = z.object({
+  params: z.object({
+    projectId: z.string()
+  }),
+  body: z
+    .object({
+      provider: providerEnum.optional()
+    })
+    .optional()
+});

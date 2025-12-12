@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { GoogleGenAI as GoogleGenerativeAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
 import { ProjectStyle } from "../models/Project";
@@ -15,7 +15,7 @@ export interface AiScene {
 }
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
-const geminiClient = env.geminiApiKey ? new GoogleGenerativeAI({ apiKey: env.geminiApiKey }) : null;
+const geminiClient = env.geminiApiKey ? new GoogleGenAI({ apiKey: env.geminiApiKey }) : null;
 const defaultModel = env.openAiModel ?? "gpt-4o-mini";
 const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
 const defaultProvider: AiProvider =
@@ -220,16 +220,17 @@ const requireGeminiClient = () => {
 const callGeminiJson = async (params: { prompt: string; temperature: number }) => {
   const { prompt, temperature } = params;
   const clientInstance = requireGeminiClient();
-  const model = clientInstance.getGenerativeModel({
+  const result = (await clientInstance.models.generateContent({
     model: defaultGeminiModel,
-    generationConfig: {
-      temperature,
-      responseMimeType: "application/json"
-    }
-  });
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { temperature, responseMimeType: "application/json" }
+  })) as any;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response?.text()?.trim() ?? "";
+  const text =
+    result?.response?.candidates?.[0]?.content?.parts
+      ?.map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+      .join("\n")
+      .trim() ?? "";
   if (!text) throw new HttpError(500, "Empty response from Gemini");
   return { text, usage: mapGeminiUsage(result.response?.usageMetadata, defaultGeminiModel) };
 };

@@ -622,3 +622,20 @@ export const regenerateScene = async (req: Request, res: Response) => {
 
   res.json(serializeScene(scene as ProjectSceneDocument & { _id: Types.ObjectId }));
 };
+
+export const generateProjectVideo = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const project = await ensureProjectOwned(req.params.projectId, req.user._id);
+  const provider = (req.body?.provider as "openai" | "gemini" | undefined) ?? "gemini";
+  const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
+
+  if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a video");
+
+  // Placeholder until video rendering pipeline is implemented.
+  res.status(501).json({
+    error: "Video generation not implemented yet",
+    provider,
+    projectId: project._id.toString(),
+    scenesCount: scenes.length
+  });
+};

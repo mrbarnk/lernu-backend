@@ -5,6 +5,7 @@ import {
   deleteScene,
   deleteProject,
   generateScenes,
+  generateProjectVideo,
   getProject,
   listProjects,
   regenerateScene,
@@ -22,6 +23,7 @@ import {
   listProjectsSchema,
   regenerateSceneSchema,
   reorderScenesSchema,
+  generateVideoSchema,
   updateProjectSchema,
   updateSceneSchema
 } from "../schemas/projectSchemas";
@@ -29,6 +31,7 @@ import {
 const router = Router();
 
 router.post("/generate-scenes", requireAuth, validate(generateScenesSchema), generateScenes);
+router.post("/:projectId/video", requireAuth, validate(generateVideoSchema), generateProjectVideo);
 router.get("/", requireAuth, validate(listProjectsSchema), listProjects);
 router.post("/", requireAuth, validate(createProjectSchema), createProject);
 router.get("/:id", requireAuth, validate(getProjectSchema), getProject);
