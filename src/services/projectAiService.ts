@@ -281,7 +281,7 @@ const makeScriptPrompt = (params: { prompt: string; language: string; duration: 
   } as const;
   const range = durationGuide[duration as keyof typeof durationGuide] || duration;
   return [
-    "Write a single, plain-text faceless video script (no JSON, no bullets).",
+    "Write a single, plain-text faceless video script (no JSON, no array).",
     `Language: ${language}.`,
     `Target duration: ${range}. Keep pacing so narration fits this range.`,
     "Style: spoken, visual, concise sentences; avoid host mentions; keep visuals implicit; strong hook and curiosity gaps.",
@@ -301,6 +301,7 @@ export const generateScriptWithAi = async (params: {
   const { prompt, language, duration, provider = defaultProvider } = params;
   if (provider === "gemini" || provider === "veo") {
     const userPrompt = makeScriptPrompt({ prompt, language, duration });
+    console.log({ userPrompt });
     const { text, usage } = await callGeminiJson({ prompt: userPrompt, temperature: 0.7 });
     return { script: text.trim(), usage };
   }
