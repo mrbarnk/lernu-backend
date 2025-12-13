@@ -1399,6 +1399,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideoStatusResponse'
 
+  /api/ai/video-from-script:
+    post:
+      summary: Generate video sequences from a script
+      description: |
+        Splits a script into sequences (voiceover + image/b-roll prompts) for downstream video creation. No video rendering is triggered here.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoFromScriptRequest'
+      responses:
+        "200":
+          description: Generated sequences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoFromScriptResponse'
+
+  /api/ai/videos:
+    get:
+      summary: List generated video sequences
+      description: Paginated list of saved video generations (script, sequences, style, optional videoUri)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10, maximum: 50 }
+      responses:
+        "200":
+          description: Video generations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/VideoGenerationItem' }
+                  nextCursor:
+                    type: string
+                    nullable: true
+
   /api/projects/{id}:
     get:
       summary: Get project
@@ -2110,6 +2159,66 @@ components:
         operationName:
           type: string
           nullable: true
+    VideoFromScriptRequest:
+      type: object
+      required: [script]
+      properties:
+        script: { type: string, maxLength: 5000 }
+        style:
+          type: string
+          enum:
+            - 4k-realistic
+            - clay
+            - cinematic
+            - brick
+            - grudge
+            - comic-book
+            - muppet
+            - ghibli
+            - playground
+            - voxel
+            - anime
+            - pixer-3d
+    VideoFromScriptResponse:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [completed] }
+        provider: { type: string, enum: [veo] }
+        operationName: { type: string, nullable: true }
+        videoUri: { type: string, nullable: true }
+        topic: { type: string }
+        sequences:
+          type: array
+          items:
+            type: object
+            properties:
+              sequenceNumber: { type: integer }
+              audio: { type: string }
+              imagePrompt: { type: string }
+              bRollPrompt: { type: string }
+              duration: { type: integer, minimum: 1, maximum: 6 }
+    VideoGenerationItem:
+      type: object
+      properties:
+        id: { type: string }
+        script: { type: string }
+        style: { type: string }
+        topic: { type: string }
+        provider: { type: string }
+        videoUri: { type: string, nullable: true }
+        sequences:
+          type: array
+          items:
+            type: object
+            properties:
+              sequenceNumber: { type: integer }
+              audio: { type: string }
+              imagePrompt: { type: string }
+              bRollPrompt: { type: string }
+              duration: { type: integer, minimum: 1, maximum: 6 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     PostPage:
       type: object

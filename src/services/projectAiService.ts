@@ -609,11 +609,18 @@ export const generateVideoFromScript = async (params: {
 }): Promise<{
   statusCode?: number;
   payload: {
-    status: "completed" | "processing";
+    status: "completed";
     provider: "veo";
-    operationName: string | null;
-    videoUri: string | null;
-    scenes: AiScene[];
+    operationName: null;
+    videoUri: null;
+    topic: string;
+    sequences: {
+      sequenceNumber: number;
+      audio: string;
+      imagePrompt: string;
+      bRollPrompt: string;
+      duration: number;
+    }[];
   };
 }> => {
   const { script, style = defaultStyle } = params;
@@ -630,22 +637,27 @@ export const generateVideoFromScript = async (params: {
     provider: "veo"
   });
 
-  const videoResult = await generateVideoWithVeo({
-    topic,
-    scenes: scenesResult.scenes,
-    style
-  });
-
-  const hasVideo = (videoResult.videos?.length ?? 0) > 0;
+  const sequences = scenesResult.scenes.map((scene) => ({
+    sequenceNumber: scene.sceneNumber,
+    audio: scene.description,
+    imagePrompt: scene.imagePrompt,
+    bRollPrompt: scene.bRollPrompt,
+    duration: clamp(
+      Math.ceil((scene.description?.split(/\s+/).filter(Boolean).length || 0) / 2.5),
+      1,
+      6
+    )
+  }));
 
   return {
-    statusCode: hasVideo ? 200 : 202,
+    statusCode: 200,
     payload: {
-      status: hasVideo ? "completed" : "processing",
+      status: "completed",
       provider: "veo",
-      operationName: videoResult.operationName ?? null,
-      videoUri: videoResult.videos?.[0]?.uri ?? null,
-      scenes: scenesResult.scenes
+      operationName: null,
+      videoUri: null,
+      topic,
+      sequences
     }
   };
 };

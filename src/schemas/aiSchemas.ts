@@ -29,3 +29,10 @@ export const videoFromScriptSchema = z.object({
     style: styleEnum.optional()
   })
 });
+
+export const listVideoGenerationsSchema = z.object({
+  query: z.object({
+    limit: z.string().optional(),
+    cursor: z.string().optional()
+  })
+});
