@@ -140,6 +140,19 @@ const normalizeScenes = (data: any, targetCount?: number): AiScene[] => {
   return scenesArray.slice(0, limit).map((scene: unknown, idx: number) => normalizeScene(scene, idx));
 };
 
+const deriveTopicFromScript = (script?: string) => {
+  if (!script) return "Untitled";
+  const cleaned = script.replace(/\s+/g, " ").trim();
+  return cleaned ? cleaned.slice(0, 120) : "Untitled";
+};
+
+const estimateSceneCountFromScript = (script?: string, fallback = 4) => {
+  if (!script) return fallback;
+  const words = script.trim().split(/\s+/).filter(Boolean).length;
+  const estimated = Math.max(1, Math.ceil(words / 45));
+  return Math.min(20, estimated);
+};
+
 const stringifyScriptPayload = (value: unknown): string => {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
@@ -256,6 +269,61 @@ const requireClient = () => {
 const requireGeminiClient = () => {
   if (!geminiClient) throw new HttpError(500, "Gemini API key is not configured");
   return geminiClient;
+};
+
+const makeScriptPrompt = (params: { prompt: string; language: string; duration: string }) => {
+  const { prompt, language, duration } = params;
+  const durationGuide: Record<"15-30" | "30-40" | "40-60" | "60-90", string> = {
+    "15-30": "15-30 seconds",
+    "30-40": "30-40 seconds",
+    "40-60": "40-60 seconds",
+    "60-90": "60-90 seconds"
+  } as const;
+  const range = durationGuide[duration as keyof typeof durationGuide] || duration;
+  return [
+    "Write a faceless short-form video script.",
+    `Language: ${language}.`,
+    `Target duration: ${range}. Keep pacing so narration fits this range.`,
+    "Structure: Hook, context, escalation beats, twist/reveal, payoff/lesson, loopable ending.",
+    "Style: spoken, visual, concise sentences; avoid host mentions; keep visuals implicit for b-roll; strong hook and curiosity gaps.",
+    "Output as plain text, ready to be narrated. Do not return JSON."
+  ].concat([`User prompt: ${prompt}`]).join("\n");
+};
+
+export const generateScriptWithAi = async (params: {
+  prompt: string;
+  language: string;
+  duration: string;
+  provider?: AiProvider;
+}): Promise<{ script: string; usage?: AiUsageMetrics }> => {
+  const { prompt, language, duration, provider = defaultProvider } = params;
+  if (provider === "gemini" || provider === "veo") {
+    const userPrompt = makeScriptPrompt({ prompt, language, duration });
+    const { text, usage } = await callGeminiJson({ prompt: userPrompt, temperature: 0.7 });
+    return { script: text.trim(), usage };
+  }
+
+  try {
+    const completion = await requireClient().chat.completions.create({
+      model: defaultModel,
+      temperature: 0.7,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You write faceless short-form video scripts with strong hooks, curiosity gaps, and concise narration. Avoid host mentions."
+        },
+        { role: "user", content: makeScriptPrompt({ prompt, language, duration }) }
+      ]
+    });
+    const content = completion.choices[0]?.message?.content?.trim();
+    if (!content) throw new Error("Empty response from model");
+    return { script: content, usage: mapUsage(completion.usage, defaultModel) };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("AI script generation failed", err);
+    throw new HttpError(500, "Failed to generate script with AI");
+  }
 };
 
 const callGeminiJson = async (params: { prompt: string; temperature: number }) => {
@@ -532,6 +600,53 @@ export const getVeoVideoOperation = async (operationName: string): Promise<{
     videos,
     operationName: op.name ?? operationName,
     done: Boolean(videos.length)
+  };
+};
+
+export const generateVideoFromScript = async (params: {
+  script: string;
+  style?: ProjectStyle;
+}): Promise<{
+  statusCode?: number;
+  payload: {
+    status: "completed" | "processing";
+    provider: "veo";
+    operationName: string | null;
+    videoUri: string | null;
+    scenes: AiScene[];
+  };
+}> => {
+  const { script, style = defaultStyle } = params;
+  const topic = deriveTopicFromScript(script);
+  const sceneCount = estimateSceneCountFromScript(script);
+
+  // Generate scenes with Gemini/Veo style prompt so visuals and voiceover stay aligned.
+  const scenesResult = await generateScenesWithGemini({
+    topic,
+    sceneCount,
+    script,
+    style,
+    refine: false,
+    provider: "veo"
+  });
+
+  const videoResult = await generateVideoWithVeo({
+    topic,
+    scenes: scenesResult.scenes,
+    style
+  });
+
+  const hasVideo = (videoResult.videos?.length ?? 0) > 0;
+
+  return {
+    statusCode: hasVideo ? 200 : 202,
+    payload: {
+      status: hasVideo ? "completed" : "processing",
+      provider: "veo",
+      operationName: videoResult.operationName ?? null,
+      videoUri: videoResult.videos?.[0]?.uri ?? null,
+      scenes: scenesResult.scenes
+    }
   };
 };
 

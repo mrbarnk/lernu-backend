@@ -13,6 +13,7 @@ import searchRoutes from "./search";
 import reelRoutes from "./reels";
 import communityRoutes from "./community";
 import projectRoutes from "./projects";
+import aiRoutes from "./ai";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
@@ -29,4 +30,5 @@ export const registerRoutes = (app: Express) => {
   app.use("/stats", statsRoutes);
   app.use("/uploads", uploadRoutes);
   app.use("/api/projects", projectRoutes);
+  app.use("/api/ai", aiRoutes);
 };
