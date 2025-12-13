@@ -26,6 +26,7 @@ export interface ProjectAttrs {
   refinedScript?: string;
   videoUri?: string;
   videoProvider?: string;
+  videoOperationName?: string;
 }
 
 export interface ProjectDocument extends Document, ProjectAttrs {
@@ -43,6 +44,7 @@ const projectSchema = new Schema<ProjectDocument>(
     refinedScript: { type: String, trim: true, maxlength: 5000 },
     videoUri: { type: String, trim: true },
     videoProvider: { type: String, trim: true },
+    videoOperationName: { type: String, trim: true },
     status: {
       type: String,
       enum: ["draft", "in-progress", "completed"],

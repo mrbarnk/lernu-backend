@@ -77,6 +77,7 @@ const serializeProject = (project: ProjectDocument & { _id: Types.ObjectId }, sc
   refinedScript: project.refinedScript,
   videoUri: project.videoUri,
   videoProvider: project.videoProvider,
+  videoOperationName: project.videoOperationName,
   status: project.status,
   style: project.style,
   createdAt: project.createdAt,
@@ -641,6 +642,28 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
   const provider = (req.body?.provider as "openai" | "gemini" | "veo" | undefined) ?? "veo";
   const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
 
+  if (project.videoUri) {
+    return res.json({
+      status: "completed",
+      provider: project.videoProvider ?? provider,
+      projectId: project._id.toString(),
+      scenesCount: scenes.length,
+      operationName: project.videoOperationName ?? null,
+      videos: [{ uri: project.videoUri }]
+    });
+  }
+
+  if (project.videoOperationName) {
+    return res.status(202).json({
+      status: "processing",
+      provider: project.videoProvider ?? provider,
+      projectId: project._id.toString(),
+      scenesCount: scenes.length,
+      operationName: project.videoOperationName,
+      videos: []
+    });
+  }
+
   if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a video");
 
   if (provider !== "veo") {
@@ -665,6 +688,7 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
   if (hasVideo) {
     project.videoUri = videoResult.videos?.[0]?.uri ?? undefined;
     project.videoProvider = provider;
+    project.videoOperationName = videoResult.operationName ?? project.videoOperationName;
     await project.save();
   }
   res.status(hasVideo ? 200 : 202).json({
@@ -672,7 +696,7 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
     provider,
     projectId: project._id.toString(),
     scenesCount: plannedScenes.length,
-    operationName: videoResult.operationName ?? null,
+    operationName: videoResult.operationName ?? project.videoOperationName ?? null,
     videos: videoResult.videos ?? []
   });
 };
@@ -681,7 +705,9 @@ export const getProjectVideoStatus = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.projectId, req.user._id);
   const operationName =
-    (req.query.operationName as string | undefined) || project.videoProvider || undefined;
+    (req.query.operationName as string | undefined) ||
+    project.videoOperationName ||
+    undefined;
 
   if (!operationName) {
     return res.json({
@@ -697,6 +723,7 @@ export const getProjectVideoStatus = async (req: Request, res: Response) => {
   if (hasVideo) {
     project.videoUri = op.videos?.[0]?.uri ?? project.videoUri;
     project.videoProvider = "veo";
+    project.videoOperationName = op.operationName ?? project.videoOperationName;
     await project.save();
   }
 

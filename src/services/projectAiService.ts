@@ -520,17 +520,18 @@ export const getVeoVideoOperation = async (operationName: string): Promise<{
   operationName: string;
   done: boolean;
 }> => {
-  const clientInstance = requireGeminiClient();
-  const op = await clientInstance.operations.getVideosOperation({
-    operation: { name: operationName } as any
-  });
+  const apiKey = requireGeminiClient(); // will throw if missing, but we only need the key
+  const url = `https://generativelanguage.googleapis.com/v1beta/${operationName}:?key=${env.geminiApiKey}`;
+  const response = await fetch(url.replace(/:$/, ""), { method: "GET" });
+  if (!response.ok) throw new HttpError(500, "Failed to check video status");
+  const data = (await response.json()) as any;
   const videos =
-    op.response?.generatedVideos?.map((vid: any) => ({
+    data?.response?.generatedVideos?.map((vid: any) => ({
       uri: vid?.video?.uri ?? vid?.videoUri ?? vid?.uri
     })) ?? [];
   return {
     videos,
-    operationName: op.name ?? operationName,
+    operationName: data?.name ?? operationName,
     done: Boolean(videos.length)
   };
 };

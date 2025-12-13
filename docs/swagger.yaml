@@ -1347,9 +1347,9 @@ paths:
 
   /api/projects/{projectId}/video:
     post:
-      summary: Generate a video for a project (placeholder)
+      summary: Generate a video for a project
       description: |
-        Kicks off AI video generation using the project's scenes. Currently returns 501 until the video pipeline is implemented.
+        Starts video generation using the project's scenes (Veo-only). Returns a completed video URI when immediately available, otherwise an operation name to poll.
       security:
         - bearerAuth: []
       parameters:
@@ -1363,21 +1363,41 @@ paths:
             schema:
               $ref: '#/components/schemas/GenerateVideoRequest'
       responses:
-        "501":
-          description: Not implemented
+        "200":
+          description: Video ready
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  provider:
-                    type: string
-                  projectId:
-                    type: string
-                  scenesCount:
-                    type: integer
+                $ref: '#/components/schemas/VideoGenerationResponse'
+        "202":
+          description: Video generation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoGenerationResponse'
+
+  /api/projects/{projectId}/video/status:
+    get:
+      summary: Check video generation status
+      description: Poll the Veo operation until a video URI is available.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: operationName
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoStatusResponse'
 
   /api/projects/{id}:
     get:
@@ -2053,6 +2073,43 @@ components:
         provider:
           type: string
           enum: [openai, gemini, veo]
+    VideoGenerationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, processing]
+        provider:
+          type: string
+          enum: [veo]
+        projectId:
+          type: string
+        scenesCount:
+          type: integer
+        operationName:
+          type: string
+          nullable: true
+        videos:
+          type: array
+          items:
+            type: object
+            properties:
+              uri: { type: string }
+    VideoStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, processing, pending]
+        provider:
+          type: string
+          enum: [veo]
+        videoUri:
+          type: string
+          nullable: true
+        operationName:
+          type: string
+          nullable: true
 
     PostPage:
       type: object
