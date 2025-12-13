@@ -1399,6 +1399,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideoStatusResponse'
 
+  /api/ai/script:
+    post:
+      summary: Generate a script with AI
+      description: Returns a plain-text faceless video script sized to the selected duration.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateScriptRequest'
+      responses:
+        "200":
+          description: Generated script
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateScriptResponse'
+
+  /api/ai/video-from-script:
+    post:
+      summary: Generate video sequences from a script
+      description: |
+        Splits a script into sequences (voiceover + image/b-roll prompts) for downstream video creation. No video rendering is triggered here.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoFromScriptRequest'
+      responses:
+        "200":
+          description: Generated sequences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoFromScriptResponse'
+
+  /api/ai/videos:
+    get:
+      summary: List generated video sequences
+      description: Paginated list of saved video generations (script, sequences, style, optional videoUri)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10, maximum: 50 }
+      responses:
+        "200":
+          description: Video generations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/VideoGenerationItem' }
+                  nextCursor:
+                    type: string
+                    nullable: true
+
   /api/ai/video-from-script:
     post:
       summary: Generate video sequences from a script
@@ -2159,6 +2228,28 @@ components:
         operationName:
           type: string
           nullable: true
+    GenerateScriptRequest:
+      type: object
+      required: [prompt, language, duration]
+      properties:
+        prompt: { type: string, maxLength: 2000 }
+        language:
+          type: string
+          enum: [en-us, en-uk, es, fr, de, pt, it, ja, ko, zh]
+        duration:
+          type: string
+          enum: [15-30, 30-40, 40-60, 60-90]
+    GenerateScriptResponse:
+      type: object
+      properties:
+        script: { type: string }
+        usage:
+          type: object
+          properties:
+            promptTokens: { type: integer }
+            completionTokens: { type: integer }
+            totalTokens: { type: integer }
+            model: { type: string }
     VideoFromScriptRequest:
       type: object
       required: [script]

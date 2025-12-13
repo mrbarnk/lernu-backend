@@ -281,13 +281,15 @@ const makeScriptPrompt = (params: { prompt: string; language: string; duration: 
   } as const;
   const range = durationGuide[duration as keyof typeof durationGuide] || duration;
   return [
-    "Write a faceless short-form video script.",
+    "Write a single, plain-text faceless video script (no JSON, no bullets).",
     `Language: ${language}.`,
     `Target duration: ${range}. Keep pacing so narration fits this range.`,
-    "Structure: Hook, context, escalation beats, twist/reveal, payoff/lesson, loopable ending.",
-    "Style: spoken, visual, concise sentences; avoid host mentions; keep visuals implicit for b-roll; strong hook and curiosity gaps.",
-    "Output as plain text, ready to be narrated. Do not return JSON."
-  ].concat([`User prompt: ${prompt}`]).join("\n");
+    "Style: spoken, visual, concise sentences; avoid host mentions; keep visuals implicit; strong hook and curiosity gaps.",
+    "Structure: hook, context, escalation beats, twist/reveal, payoff/lesson, loopable ending.",
+    "Return only the script text."
+  ]
+    .concat([`User prompt: ${prompt}`])
+    .join("\n");
 };
 
 export const generateScriptWithAi = async (params: {
