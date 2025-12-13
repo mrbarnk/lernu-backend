@@ -685,12 +685,12 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
   });
 
   const hasVideo = (videoResult.videos?.length ?? 0) > 0;
+  project.videoOperationName = videoResult.operationName ?? project.videoOperationName;
   if (hasVideo) {
     project.videoUri = videoResult.videos?.[0]?.uri ?? undefined;
     project.videoProvider = provider;
-    project.videoOperationName = videoResult.operationName ?? project.videoOperationName;
-    await project.save();
   }
+  await project.save();
   res.status(hasVideo ? 200 : 202).json({
     status: hasVideo ? "completed" : "processing",
     provider,

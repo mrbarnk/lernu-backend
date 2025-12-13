@@ -91,7 +91,7 @@ export const getPost = async (req: Request, res: Response) => {
     .populate("author", authorProjection)
     .lean();
   if (!post) throw new HttpError(404, "Post not found");
-  res.json({ post: serializePost(post as any, req.user?._id) });
+  res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
 
 export const createPost = async (req: Request, res: Response) => {
