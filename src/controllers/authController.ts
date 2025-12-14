@@ -3,9 +3,13 @@ import { generateTokens } from "../utils/tokens";
 import { User } from "../models/User";
 import { HttpError } from "../middleware/error";
 import { serializeUser } from "../utils/serializers";
+import { getClientIp } from "../utils/ip";
 
 export const signup = async (req: Request, res: Response) => {
-  const { email, password, username, displayName } = req.body;
+  const { email, password, username, displayName, ref } = req.body;
+  const registrationIp = getClientIp(req);
+  const registrationRef = typeof ref === "string" && ref.trim().length ? ref.trim() : undefined;
+
   const existing = await User.findOne({ $or: [{ email }, { username }] });
   if (existing) {
     throw new HttpError(400, "Email or username already in use");
@@ -14,7 +18,10 @@ export const signup = async (req: Request, res: Response) => {
     email,
     password,
     username,
-    displayName
+    displayName,
+    registrationIp,
+    registrationRef,
+    loginHistory: registrationIp ? [{ ip: registrationIp, loggedInAt: new Date() }] : []
   });
   const tokens = generateTokens(user);
   res.json({ user: serializeUser(user), tokens });
@@ -26,6 +33,14 @@ export const login = async (req: Request, res: Response) => {
   if (!user) throw new HttpError(401, "Invalid credentials");
   const valid = await user.comparePassword(password);
   if (!valid) throw new HttpError(401, "Invalid credentials");
+
+  const loginIp = getClientIp(req);
+  if (loginIp) {
+    user.loginHistory = user.loginHistory ?? [];
+    user.loginHistory.push({ ip: loginIp, loggedInAt: new Date() });
+    await user.save();
+  }
+
   const tokens = generateTokens(user);
   res.json({ user: serializeUser(user), tokens });
 };

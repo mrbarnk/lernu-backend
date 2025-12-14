@@ -4,6 +4,11 @@ import { Document, Model, Schema, Types, model } from "mongoose";
 export type UserRole = "user" | "moderator" | "admin";
 export type BadgeType = "verified" | "platinum" | "gold" | "moderator" | "contributor";
 
+export interface LoginHistoryEntry {
+  ip: string;
+  loggedInAt: Date;
+}
+
 export interface UserAttrs {
   email: string;
   username: string;
@@ -17,12 +22,16 @@ export interface UserAttrs {
   role?: UserRole;
   joinedAt?: Date;
   badges?: BadgeType[];
+  registrationIp?: string;
+  registrationRef?: string;
+  loginHistory?: LoginHistoryEntry[];
 }
 
 export interface UserDocument extends Document, UserAttrs {
   refreshTokens?: string[];
   followers: Types.Array<Types.ObjectId>;
   following: Types.Array<Types.ObjectId>;
+  loginHistory: LoginHistoryEntry[];
   comparePassword(candidate: string): Promise<boolean>;
 }
 
@@ -42,7 +51,18 @@ const userSchema = new Schema<UserDocument>(
     badges: [{ type: String, enum: ["verified", "platinum", "gold", "moderator", "contributor"] }],
     followers: [{ type: Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    refreshTokens: [{ type: String }]
+    refreshTokens: [{ type: String }],
+    registrationIp: { type: String, trim: true, maxlength: 100 },
+    registrationRef: { type: String, trim: true, maxlength: 100 },
+    loginHistory: {
+      type: [
+        {
+          ip: { type: String, required: true, trim: true, maxlength: 100 },
+          loggedInAt: { type: Date, default: Date.now }
+        }
+      ],
+      default: []
+    }
   },
   {
     versionKey: false
