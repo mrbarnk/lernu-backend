@@ -6,6 +6,7 @@ import { HttpError } from "../middleware/error";
 import { buildCursorFilter, getNextCursor, parsePagination } from "../utils/pagination";
 import { serializePost, serializeUser } from "../utils/serializers";
 import { notifyUser } from "../services/notificationService";
+import { getOnlineUsers } from "../services/presenceService";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -29,6 +30,10 @@ export const getUserProfile = async (req: Request, res: Response) => {
     user: serializeUser(user, req.user?._id),
     recentPosts: recentPosts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 200 }))
   });
+};
+
+export const getOnlineUsersList = async (_req: Request, res: Response) => {
+  res.json({ users: getOnlineUsers() });
 };
 
 export const getUserPosts = async (req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 import "express-async-errors";
 import express from "express";
+import { createServer } from "http";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -10,8 +11,12 @@ import { env } from "./config/env";
 import { connectDatabase } from "./config/db";
 import { registerRoutes } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/error";
+import { createSocketServer } from "./realtime/socketServer";
+import { resetOnlineUsers } from "./services/presenceService";
 
 const app = express();
+const httpServer = createServer(app);
+createSocketServer(httpServer);
 
 app.use(
   cors({
@@ -44,15 +49,16 @@ app.use(errorHandler);
 const start = async () => {
   try {
     await connectDatabase();
+    await resetOnlineUsers();
 
     await new Promise<void>((resolve, reject) => {
-      const server = app.listen(env.port, () => {
+      httpServer.listen(env.port, () => {
         // eslint-disable-next-line no-console
         console.log(`API listening on port ${env.port}`);
         resolve();
       });
 
-      server.on("error", (err: NodeJS.ErrnoException) => {
+      httpServer.on("error", (err: NodeJS.ErrnoException) => {
         // eslint-disable-next-line no-console
         console.error(`Failed to start server on port ${env.port}:`, err.message);
         reject(err);

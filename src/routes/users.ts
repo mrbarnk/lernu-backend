@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   followUser,
+  getOnlineUsersList,
   getUserPosts,
   getUserProfile,
   getUserPostsByUsername,
@@ -21,6 +22,7 @@ import {
 const router = Router();
 
 router.get("/search", validate(searchUsersSchema), searchUsers);
+router.get("/online", optionalAuth, getOnlineUsersList);
 router.get("/by-username/:username", optionalAuth, validate(usernameParamSchema), getUserProfileByUsername);
 router.get("/by-username/:username/posts", optionalAuth, validate(usernameParamSchema), getUserPostsByUsername);
 router.get("/:id", optionalAuth, validate(userIdParamSchema), getUserProfile);
