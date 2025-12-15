@@ -6,6 +6,8 @@ export interface VideoSequence {
   imagePrompt: string;
   bRollPrompt: string;
   duration: number;
+  audioDataUri?: string;
+  imageDataUri?: string;
 }
 
 export interface VideoGenerationAttrs {
@@ -16,6 +18,8 @@ export interface VideoGenerationAttrs {
   provider: string;
   sequences: VideoSequence[];
   videoUri?: string;
+  status?: "pending" | "processing" | "completed" | "failed";
+  progress?: number;
 }
 
 export interface VideoGenerationDocument extends Document, VideoGenerationAttrs {
@@ -42,7 +46,13 @@ const videoGenerationSchema = new Schema<VideoGenerationDocument>(
     topic: { type: String, required: true, trim: true, maxlength: 500 },
     provider: { type: String, required: true, trim: true },
     sequences: { type: [sequenceSchema], required: true },
-    videoUri: { type: String, trim: true }
+    videoUri: { type: String, trim: true },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "completed", "failed"],
+      default: "pending"
+    },
+    progress: { type: Number, default: 0 }
   },
   {
     timestamps: { createdAt: true, updatedAt: true },

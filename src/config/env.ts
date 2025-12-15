@@ -42,6 +42,6 @@ export const env = {
   openAiApiKey: optional("OPENAI_API_KEY"),
   openAiModel: optional("OPENAI_MODEL", "gpt-4o-mini"),
   geminiApiKey: optional("GEMINI_API_KEY"),
-  geminiModel: optional("GEMINI_MODEL", "gemini-1.5-flash"),
+  geminiModel: optional("GEMINI_MODEL", "gemini-2.5-flash"),
   aiProvider: optional("AI_PROVIDER", "openai")
 };

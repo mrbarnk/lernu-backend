@@ -16,11 +16,24 @@ const styleEnum = z.enum([
 ]);
 
 export const generateScriptSchema = z.object({
-  body: z.object({
-    prompt: z.string().min(1).max(2000),
-    language: z.enum(["en-us", "en-uk", "es", "fr", "de", "pt", "it", "ja", "ko", "zh"]),
-    duration: z.enum(["15-30", "30-40", "40-60", "60-90"])
-  })
+  body: z
+    .object({
+      prompt: z.string().trim().min(1).max(4000).optional(),
+      language: z.string().trim().min(2).max(10).default("en"),
+      duration: z.string().trim().min(1).max(20).default("60s"),
+      topicCategory: z.string().trim().min(1).max(100).optional(),
+      format: z.string().trim().min(1).max(100).optional()
+    })
+    .superRefine((data, ctx) => {
+      const hasPrompt = Boolean(data.prompt);
+      const hasRandomInputs = Boolean(data.topicCategory && data.format);
+      if (!hasPrompt && !hasRandomInputs) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Provide either a prompt or both topicCategory and format"
+        });
+      }
+    })
 });
 
 export const videoFromScriptSchema = z.object({
@@ -34,5 +47,11 @@ export const listVideoGenerationsSchema = z.object({
   query: z.object({
     limit: z.string().optional(),
     cursor: z.string().optional()
+  })
+});
+
+export const processVideoSchema = z.object({
+  params: z.object({
+    id: z.string()
   })
 });

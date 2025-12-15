@@ -1403,8 +1403,6 @@ paths:
     post:
       summary: Generate a script with AI
       description: Returns a plain-text faceless video script sized to the selected duration.
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -1467,6 +1465,44 @@ paths:
                   nextCursor:
                     type: string
                     nullable: true
+
+  /api/ai/videos/{id}/process:
+    post:
+      summary: Process a generated video (audio + image creation)
+      description: Starts processing a saved video generation to create audio/image data URIs for each sequence.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Processing state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoGenerationStatus'
+
+  /api/ai/videos/{id}/status:
+    get:
+      summary: Check video generation processing status
+      description: Returns status/progress and videoUri (if available) for a saved video generation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoGenerationStatus'
 
   /api/ai/video-from-script:
     post:
@@ -2230,19 +2266,33 @@ components:
           nullable: true
     GenerateScriptRequest:
       type: object
-      required: [prompt, language, duration]
+      description: Provide either a prompt or both topicCategory and format.
       properties:
-        prompt: { type: string, maxLength: 2000 }
+        prompt:
+          type: string
+          maxLength: 4000
         language:
           type: string
-          enum: [en-us, en-uk, es, fr, de, pt, it, ja, ko, zh]
+          default: en
         duration:
           type: string
-          enum: [15-30, 30-40, 40-60, 60-90]
+          default: 60s
+        topicCategory:
+          type: string
+          description: Category id used when asking for a random script.
+        format:
+          type: string
+          description: Format id used when asking for a random script.
     GenerateScriptResponse:
       type: object
       properties:
         script: { type: string }
+        topic:
+          type: string
+          description: Present when the backend picked a random topic.
+        format:
+          type: string
+          description: Human-readable format label echoed back to the UI.
         usage:
           type: object
           properties:
@@ -2289,6 +2339,8 @@ components:
               imagePrompt: { type: string }
               bRollPrompt: { type: string }
               duration: { type: integer, minimum: 1, maximum: 6 }
+              audioDataUri: { type: string, nullable: true }
+              imageDataUri: { type: string, nullable: true }
     VideoGenerationItem:
       type: object
       properties:
@@ -2308,8 +2360,17 @@ components:
               imagePrompt: { type: string }
               bRollPrompt: { type: string }
               duration: { type: integer, minimum: 1, maximum: 6 }
+              audioDataUri: { type: string, nullable: true }
+              imageDataUri: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    VideoGenerationStatus:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [pending, processing, completed, failed] }
+        progress: { type: integer }
+        videoUri: { type: string, nullable: true }
 
     PostPage:
       type: object

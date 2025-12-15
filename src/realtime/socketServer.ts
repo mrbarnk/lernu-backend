@@ -60,7 +60,7 @@ export const createSocketServer = (server: HttpServer) => {
     }
   });
 
-  io.use(async (socket, next) => {
+  io.use(async (socket: Socket, next) => {
     const user = await resolveUserFromToken(extractToken(socket));
     if (!user) {
       next(new Error("Unauthorized"));
@@ -70,7 +70,7 @@ export const createSocketServer = (server: HttpServer) => {
     next();
   });
 
-  io.on("connection", async (socket) => {
+  io.on("connection", async (socket: Socket) => {
     const user = socket.data.user as OnlineUser | undefined;
     if (!user) {
       socket.disconnect(true);

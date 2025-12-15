@@ -1,19 +1,152 @@
 import { Request, Response } from "express";
 import { HttpError } from "../middleware/error";
-import { generateScriptWithAi, generateVideoFromScript } from "../services/projectAiService";
+import {
+  generateScriptWithAi,
+  generateVideoFromScript,
+  getCategoryInstruction
+} from "../services/projectAiService";
 import { VideoGeneration } from "../models/VideoGeneration";
+import { processVideoGenerationJob, getVideoGenerationStatus } from "../services/videoJobService";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
 
+const RANDOM_TOPIC_LIBRARY: Record<string, string[]> = {
+  "scary-stories": [
+    "The watcher in the woods that no one sees twice",
+    "The elevator that only moves at 3:33 AM",
+    "The voicemail from tomorrow night",
+    "The town that erased one day from its calendar",
+    "The bridge that hums back when you whistle"
+  ],
+  history: [
+    "The forgotten war fought over bird poop",
+    "How a volcano in 1815 invented the bicycle",
+    "The librarian who saved Timbuktu's manuscripts",
+    "The heist that stole the Mona Lisa for two years",
+    "The ghost army of World War II that wasn't a ghost"
+  ],
+  science: [
+    "How whales learned to echolocate in the dark ocean",
+    "The mushroom that can clean up oil spills",
+    "The black hole that sings a B-flat 57 octaves below middle C",
+    "The particle that broke the speed of light—until it didn't",
+    "The jellyfish that may live forever"
+  ],
+  tech: [
+    "The USB stick that took down a nuclear program",
+    "The satellite that crashed twice and kept working",
+    "The teenager who mapped every ship at sea from his bedroom",
+    "The AI that saved a city from a blackout",
+    "The floppy disk that delayed a rocket launch"
+  ],
+  mysteries: [
+    "The missing lighthouse keepers of Eilean Mor",
+    "The radio signal that repeats every 18 minutes",
+    "The book written in a language no one can read",
+    "The plane that vanished and landed—twelve years later",
+    "The desert stones that move when no one watches"
+  ]
+};
+
+const FALLBACK_TOPICS = [
+  "The village that disappeared overnight",
+  "The map that rewrote world borders",
+  "The ocean that glows without light",
+  "The astronaut stranded in orbit for 311 days",
+  "The abandoned island ruled by rabbits"
+];
+
+const toLabel = (value?: string) => {
+  if (!value) return undefined;
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
+const pickRandom = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+
+const pickTopicForCategory = (topicCategory?: string) => {
+  const key = topicCategory?.toLowerCase() ?? "";
+  const library = RANDOM_TOPIC_LIBRARY[key];
+  const base = library?.length ? pickRandom(library) : pickRandom(FALLBACK_TOPICS);
+  if (topicCategory && !library?.length) {
+    return `${toLabel(topicCategory)}: ${base}`;
+  }
+  return base;
+};
+
+const buildRandomScriptPrompt = (params: {
+  topicCategory?: string;
+  format?: string;
+  duration?: string;
+}) => {
+  const topic = pickTopicForCategory(params.topicCategory);
+  const categoryLabel = toLabel(params.topicCategory) ?? "General interest";
+  const formatLabel = toLabel(params.format) ?? "Storytelling";
+  const parts = [
+    `Write a ${formatLabel.toLowerCase()} short-form video script about "${topic}".`,
+    `Category: ${categoryLabel}.`,
+    "Keep narration faceless, punchy, with blank lines between paragraphs, and under ~1,200 words."
+  ];
+  if (params.duration) parts.push(`Target runtime hint: ${params.duration}.`);
+  return { prompt: parts.join(" "), topic, format: formatLabel };
+};
+
 export const generateScript = async (req: Request, res: Response) => {
-  if (!req.user) throw new HttpError(401, "Authentication required");
-  const { prompt, language, duration } = req.body as {
-    prompt: string;
-    language: string;
-    duration: string;
+  const { prompt, language = "en", duration = "60s", topicCategory, format } = req.body as {
+    prompt?: string;
+    language?: string;
+    duration?: string;
+    topicCategory?: string;
+    format?: string;
   };
 
-  const result = await generateScriptWithAi({ prompt, language, duration });
-  res.json({ script: result.script, usage: result.usage });
+  const hasPrompt = Boolean(prompt);
+  const hasRandomInputs = Boolean(topicCategory && format);
+  if (!hasPrompt && !hasRandomInputs) {
+    throw new HttpError(400, "Provide either a prompt or both topicCategory and format");
+  }
+
+  let aiPrompt = prompt?.trim();
+  let resolvedTopic: string | undefined;
+  let resolvedFormat: string | undefined;
+
+  if (!aiPrompt) {
+    const plan = buildRandomScriptPrompt({ topicCategory, format, duration });
+    aiPrompt = plan.prompt;
+    resolvedTopic = plan.topic;
+    resolvedFormat = plan.format;
+  } else if (format || topicCategory) {
+    const formatLabel = toLabel(format);
+    const categoryLabel = toLabel(topicCategory);
+    const contextParts = [
+      formatLabel ? `Format: ${formatLabel}.` : undefined,
+      categoryLabel ? `Category: ${categoryLabel}.` : undefined,
+      "Keep paragraphs separated by blank lines."
+    ].filter(Boolean);
+    aiPrompt = `${aiPrompt}\n\n${contextParts.join(" ")}`.trim();
+    resolvedFormat = formatLabel ?? undefined;
+  }
+
+  if (!aiPrompt) throw new HttpError(400, "Prompt is required");
+
+  const result = await generateScriptWithAi({
+    prompt: aiPrompt,
+    language: language || "en",
+    duration: duration || "60s",
+    categoryInstructions: getCategoryInstruction(topicCategory)
+  });
+
+  const script = result.script?.trim();
+  if (!script) throw new HttpError(500, "Failed to generate script with AI");
+
+  res.json({
+    script,
+    ...(resolvedTopic ? { topic: resolvedTopic } : {}),
+    ...(resolvedFormat ? { format: resolvedFormat } : {}),
+    usage: result.usage
+  });
 };
 
 export const generateVideoFromScriptHandler = async (req: Request, res: Response) => {
@@ -31,9 +164,22 @@ export const generateVideoFromScriptHandler = async (req: Request, res: Response
     videoUri: result.payload.videoUri ?? undefined
   });
 
-  res
-    .status(result.statusCode ?? 200)
-    .json({ id: video._id.toString(), ...result.payload });
+  await processVideoGenerationJob(video);
+  const updated = await VideoGeneration.findById(video._id);
+
+  res.status(result.statusCode ?? 200).json({
+    id: video._id.toString(),
+    ...(updated
+      ? {
+          status: updated.status,
+          provider: updated.provider,
+          operationName: null,
+          videoUri: updated.videoUri ?? null,
+          topic: updated.topic,
+          sequences: updated.sequences
+        }
+      : result.payload)
+  });
 };
 
 export const listVideoGenerations = async (req: Request, res: Response) => {
@@ -62,4 +208,30 @@ export const listVideoGenerations = async (req: Request, res: Response) => {
     })),
     nextCursor: getNextCursor(videos as any, limit)
   });
+};
+
+export const processVideoGeneration = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const video = await VideoGeneration.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!video) throw new HttpError(404, "Video generation not found");
+
+  if (video.status === "completed" || video.status === "processing") {
+    return res.json({ status: video.status, progress: video.progress ?? 0, id: video._id.toString() });
+  }
+
+  await processVideoGenerationJob(video);
+  const updated = await VideoGeneration.findById(video._id);
+  res.json({
+    status: updated?.status ?? "pending",
+    progress: updated?.progress ?? 0,
+    id: video._id.toString()
+  });
+};
+
+export const videoGenerationStatus = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const video = await VideoGeneration.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!video) throw new HttpError(404, "Video generation not found");
+  const status = await getVideoGenerationStatus(video);
+  res.json(status);
 };

@@ -24,6 +24,30 @@ const defaultProvider: AiProvider =
     : "openai";
 const defaultStyle: ProjectStyle = "cinematic";
 
+const CATEGORY_INSTRUCTIONS: Record<string, string> = {
+  "bible-stories": [
+    "Authentic biblical narratives from Old and New Testaments only—no invented events or characters.",
+    "Focus areas include: Creation and Eden; Fall of Man; Noah's Ark and covenant; Abraham's journey and sacrifice of Isaac; Moses, the plagues, and Exodus; Red Sea parting; Joshua and Jericho; Judges era (Samson, Gideon, Deborah); David and Goliath; Saul's downfall; Bathsheba; Solomon's wisdom and temple; kingdom division; Elijah and Elisha miracles; Mount Carmel; chariot of fire; Daniel (lion's den, furnace, dreams); Esther; Job; Jonah and Nineveh; prophetic warnings and messianic prophecies; Babylonian captivity; New Testament: birth of Jesus, ministry, miracles, parables, Passion, crucifixion, resurrection, Great Commission; Pentecost; Paul's conversion and journeys; Revelation visions.",
+    "Emphasize faith journeys, divine encounters, covenant relationships, prophetic fulfillment, redemption, and moral dilemmas (obedience vs rebellion).",
+    "Include cultural and historical context when helpful (era, locations, customs) and keep theological significance accurate.",
+    "Highlight human elements (motivations, struggles, turning points) and divine interventions while maintaining scriptural accuracy.",
+    "Absolutely avoid speculative additions; everything must align with the biblical text."
+  ].join(" ")
+};
+
+const normalizeCategoryId = (value?: string) =>
+  (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+export const getCategoryInstruction = (category?: string) => {
+  const key = normalizeCategoryId(category);
+  if (!key) return undefined;
+  return CATEGORY_INSTRUCTIONS[key];
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 type ChatUsage = OpenAI.Chat.Completions.ChatCompletion["usage"] | null | undefined;
@@ -271,8 +295,13 @@ const requireGeminiClient = () => {
   return geminiClient;
 };
 
-const makeScriptPrompt = (params: { prompt: string; language: string; duration: string }) => {
-  const { prompt, language, duration } = params;
+const makeScriptPrompt = (params: {
+  prompt: string;
+  language: string;
+  duration: string;
+  categoryInstructions?: string;
+}) => {
+  const { prompt, language, duration, categoryInstructions } = params;
   const durationGuide: Record<"15-30" | "30-40" | "40-60" | "60-90", string> = {
     "15-30": "15-30 seconds",
     "30-40": "30-40 seconds",
@@ -280,16 +309,22 @@ const makeScriptPrompt = (params: { prompt: string; language: string; duration: 
     "60-90": "60-90 seconds"
   } as const;
   const range = durationGuide[duration as keyof typeof durationGuide] || duration;
-  return [
+  const lines = [
     "Write a single, plain-text faceless video script (no JSON, no array).",
     `Language: ${language}.`,
     `Target duration: ${range}. Keep pacing so narration fits this range.`,
     "Style: spoken, visual, concise sentences; avoid host mentions; keep visuals implicit; strong hook and curiosity gaps.",
     "Structure: hook, context, escalation beats, twist/reveal, payoff/lesson, loopable ending.",
-    "Return only the script text."
-  ]
-    .concat([`User prompt: ${prompt}`])
-    .join("\n");
+    "Return only the script text.",
+    `User prompt: ${prompt}`
+  ];
+
+  if (categoryInstructions) {
+    lines.push("Category rules (strict):");
+    lines.push(categoryInstructions);
+  }
+
+  return lines.join("\n");
 };
 
 export const generateScriptWithAi = async (params: {
@@ -297,10 +332,11 @@ export const generateScriptWithAi = async (params: {
   language: string;
   duration: string;
   provider?: AiProvider;
+  categoryInstructions?: string;
 }): Promise<{ script: string; usage?: AiUsageMetrics }> => {
-  const { prompt, language, duration, provider = defaultProvider } = params;
+  const { prompt, language, duration, provider = defaultProvider, categoryInstructions } = params;
   if (provider === "gemini" || provider === "veo") {
-    const userPrompt = makeScriptPrompt({ prompt, language, duration });
+    const userPrompt = makeScriptPrompt({ prompt, language, duration, categoryInstructions });
     console.log({ userPrompt });
     const { text, usage } = await callGeminiJson({ prompt: userPrompt, temperature: 0.7 });
     return { script: text.trim(), usage };
@@ -316,7 +352,10 @@ export const generateScriptWithAi = async (params: {
           content:
             "You write faceless short-form video scripts with strong hooks, curiosity gaps, and concise narration. Avoid host mentions."
         },
-        { role: "user", content: makeScriptPrompt({ prompt, language, duration }) }
+        {
+          role: "user",
+          content: makeScriptPrompt({ prompt, language, duration, categoryInstructions })
+        }
       ]
     });
     const content = completion.choices[0]?.message?.content?.trim();
@@ -706,3 +745,18 @@ export const regenerateSceneWithAi = async (params: {
     throw new HttpError(500, "Failed to regenerate scene with AI");
   }
 };
+
+// (async () => {
+//   // Test Gemini connection
+//   if (geminiClient) {
+//     try {
+//       const result = await geminiClient.models.list();
+//       console.log({result:result.pageInternal})
+//       // eslint-disable-next-line no-console
+//       console.log("Gemini models available:", result.pageInternal?.map((m) => m.name));
+//     } catch (err) {
+//       // eslint-disable-next-line no-console
+//       console.error("Failed to list Gemini models", err);
+//     }
+//   }
+// });
