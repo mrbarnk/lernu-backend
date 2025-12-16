@@ -16,8 +16,8 @@ export interface AiScene {
 
 const client = env.openAiApiKey ? new OpenAI({ apiKey: env.openAiApiKey }) : null;
 const geminiClient = env.geminiApiKey ? new GoogleGenAI({ apiKey: env.geminiApiKey }) : null;
-const defaultModel = env.openAiModel ?? "gpt-4o-mini";
-const defaultGeminiModel = env.geminiModel ?? "gemini-1.5-flash";
+const defaultModel = env.openAiModel ?? "gpt-5o-mini";
+const defaultGeminiModel = env.geminiModel ?? "gemini-2.5-flash";
 const defaultProvider: AiProvider =
   env.aiProvider === "gemini" || env.aiProvider === "openai" || env.aiProvider === "veo"
     ? (env.aiProvider as AiProvider)
@@ -25,14 +25,12 @@ const defaultProvider: AiProvider =
 const defaultStyle: ProjectStyle = "cinematic";
 
 const CATEGORY_INSTRUCTIONS: Record<string, string> = {
-  "bible-stories": [
-    "Authentic biblical narratives from Old and New Testaments only—no invented events or characters.",
-    "Focus areas include: Creation and Eden; Fall of Man; Noah's Ark and covenant; Abraham's journey and sacrifice of Isaac; Moses, the plagues, and Exodus; Red Sea parting; Joshua and Jericho; Judges era (Samson, Gideon, Deborah); David and Goliath; Saul's downfall; Bathsheba; Solomon's wisdom and temple; kingdom division; Elijah and Elisha miracles; Mount Carmel; chariot of fire; Daniel (lion's den, furnace, dreams); Esther; Job; Jonah and Nineveh; prophetic warnings and messianic prophecies; Babylonian captivity; New Testament: birth of Jesus, ministry, miracles, parables, Passion, crucifixion, resurrection, Great Commission; Pentecost; Paul's conversion and journeys; Revelation visions.",
-    "Emphasize faith journeys, divine encounters, covenant relationships, prophetic fulfillment, redemption, and moral dilemmas (obedience vs rebellion).",
-    "Include cultural and historical context when helpful (era, locations, customs) and keep theological significance accurate.",
-    "Highlight human elements (motivations, struggles, turning points) and divine interventions while maintaining scriptural accuracy.",
-    "Absolutely avoid speculative additions; everything must align with the biblical text."
-  ].join(" ")
+  "bible-stories": `Authentic biblical narratives from Old and New Testaments. Focus on Creation/Garden of Eden/Fall of Man, Noah's Ark/the Flood/divine covenant, Abraham's journey/sacrifice of Isaac/covenant promises, Moses and Exodus/ten plagues/Red Sea parting, Joshua's conquest/Jericho's walls/Promised Land, Judges era/Samson's strength/Gideon's army/Deborah's wisdom, David and Goliath/Saul's downfall/Bathsheba scandal, Solomon's wisdom/temple construction/kingdom division, Elijah's miracles/Mount Carmel/chariot of fire, Daniel in lion's den/fiery furnace/dream interpretations, Esther's courage/saving her people/palace intrigue, Job's trials/suffering and faith/divine response, Jonah and the whale/Nineveh's repentance, prophetic warnings/messianic prophecies/Babylonian captivity. New Testament: virgin birth/wise men/Herod's threat, Jesus's baptism/temptation/calling disciples, miracles/healing/raising dead/walking on water, parables/prodigal son/good Samaritan/lost sheep, feeding five thousand/Transfiguration/Palm Sunday, Last Supper/Gethsemane/betrayal, crucifixion/resurrection/Great Commission, Pentecost/early Church/speaking in tongues, Paul's conversion/missionary journeys/shipwreck, persecution/martyrdom/Revelation visions. Emphasize faith journeys/divine encounters/miraculous interventions, moral dilemmas/obedience vs. rebellion/consequences, prophetic fulfillment/covenant relationships/redemption stories, leadership struggles/family dynamics/spiritual warfare, worship/prayer/transformation. Include key figures/their motivations/personal struggles, turning points/divine intervention/pivotal decisions, cultural context/historical settings/archaeological evidence, theological significance/spiritual lessons/modern applications. Focus on covenant faithfulness/divine calling/miraculous deliverance, prophetic confrontations/wilderness testing/captivity narratives, redemption/grace/eternal hope. Emphasize documented biblical accounts with dramatic human elements showing God's interaction with humanity and timeless spiritual truths. IT'S EXTREMELY IMPORTANT THAT ALL CONTENT IS BASED ON ACTUAL BIBLICAL TEXT AND MAINTAINS SCRIPTURAL ACCURACY.`,
+  "scary-stories": `True historical horror stories and dark real-world events with psychological terror elements. Focus on elite military operatives/legendary snipers/assassins and their story, feel free to touch cold war stories that have been recorded into movies, nuclear disasters/radiation poisoning/toxic waste cover-ups, serial killers/psychiatric escapees/mass murderers, unexplained disappearances/missing persons with dark implications, Cold War espionage/containment breaches, military black ops, extreme survival cases, cult leaders/mass manipulation, plane crashes/maritime disasters with survivor horror, abandoned research stations/lost expeditions. Exclude fictional monsters/supernatural entities - focus on real human evil, natural predators, scientific disasters, documented historical events that feel too disturbing to be true but are factual. IT'S EXTREMELY IMPORTANT THAT IT'S BASED ON REAL EVENTS.`,
+  "history-stories": `True historical events and fascinating accounts from all eras. Focus on ancient civilizations/Egyptian pharaohs/Mesopotamian empires, Greek city-states/Roman conquests/Byzantine intrigues, Viking raids/Norse exploration/medieval kingdoms, Crusades/Islamic Golden Age/Mongol invasions, Renaissance discoveries/Age of Exploration/colonial expansion, Ottoman Empire/Safavid Persia/Mughal India, Chinese dynasties/Japanese samurai/Korean kingdoms, African empires/Mali/Songhai/Ethiopian highlands, Aztec/Inca/Maya civilizations/pre-Columbian Americas, American Revolution/French Revolution/Napoleonic Wars, Industrial Revolution/Victorian era/Belle Époque, World War I/Russian Revolution/interwar period, World War II/Holocaust/Pacific Theater, Cold War/decolonization/space race, Arab Spring/modern conflicts/contemporary geopolitics. Emphasize political intrigue/palace coups/assassinations, military strategies/legendary battles/tactical innovations, cultural exchanges/trade routes/diplomatic missions, scientific breakthroughs/technological advances/medical discoveries, religious movements/philosophical schools/intellectual revolutions, social upheavals/class struggles/popular revolts, exploration/expeditions/cartographic achievements, art movements/architectural marvels/literary works. Include specific details about key figures/their motivations/personal struggles, turning points/decisive moments/unintended consequences, daily life/social customs/economic systems, long-term impact/historical significance/modern relevance. Focus on power struggles/succession crises, cultural clashes/adaptation, innovation/resistance to change, heroic achievements/tragic downfalls, forgotten civilizations/lost knowledge, diplomatic breakthroughs/failed negotiations, strategic victories/devastating defeats. Emphasize documented historical events with dramatic human elements that shaped civilizations and continue influencing the modern world. IT'S EXTREMELY IMPORTANT THAT IT'S BASED ON REAL EVENTS.`,
+  "true-crime": `Real criminal cases and heists with dramatic execution and shocking aftermath. Focus on elaborate bank heists/vault penetrations/armored car robberies, art thefts/museum break-ins/gallery infiltrations, jewel heists/diamond exchanges/precious metal thefts, casino robberies/gambling house infiltrations/money laundering schemes, corporate embezzlement/white-collar fraud/financial manipulation, prison escapes/maximum security breakouts/fugitive manhunts, organized crime operations/mafia hits/cartel activities, serial killer cases/methodical murderers/psychological profiling breakthroughs, kidnapping schemes/ransom demands/hostage situations, drug trafficking operations/smuggling networks/border infiltrations, counterfeiting rings/forgery operations/identity theft schemes, cybercrime cases/hacking operations/digital fraud, assassination plots/political murders/contract killings, insurance fraud/staged accidents/false death schemes, blackmail operations/extortion rings/corruption scandals, cold cases/unsolved mysteries/breakthrough investigations, witness protection failures/informant betrayals/undercover operations gone wrong, international crime syndicates/cross-border operations/diplomatic immunity abuse. Emphasize meticulous planning/reconnaissance/inside information, sophisticated tools/technical expertise/professional execution, law enforcement response/investigation techniques/forensic breakthroughs, legal proceedings/courtroom drama/sentencing outcomes, media coverage/public reaction/cultural impact. Include specific details about criminal methodology/security vulnerabilities exploited, investigation process/evidence gathering/breakthrough moments, arrests/trials/plea bargains/sentences, stolen goods recovery/financial losses/victim impact, long-term consequences/criminal careers/rehabilitation attempts. Stories should feature: cat-and-mouse pursuits/detective work, criminal ingenuity/law enforcement adaptation, betrayals/double-crosses/honor among thieves, justice served/cases gone cold, criminal legends/notorious reputations. Focus on documented rare cases with compelling execution details and significant aftermath that demonstrate criminal sophistication and investigative excellence. IT'S EXTREMELY IMPORTANT THAT IT'S BASED ON REAL EVENTS.`,
+  "motivation": "Stoic philosophy, life lessons, wisdom, and motivational content. Focus on ancient Stoic philosophers/Marcus Aurelius/Seneca/Epictetus, Greek wisdom/Socrates/Plato/Aristotle, Eastern philosophy/Buddhism/Taoism/Confucianism, Renaissance thinkers/Enlightenment philosophers/modern wisdom traditions, self-improvement gurus/Tony Robbins/Jim Rohn/Brian Tracy, new generation motivators/Naval Ravikant/Luke Belmar/Andrew Huberman, business philosophy/entrepreneurial mindset/wealth building principles, productivity systems/time management/habit formation, mental models/decision making frameworks/cognitive biases, mindfulness practices/meditation techniques/spiritual growth, physical health/fitness motivation/longevity principles, relationship wisdom/communication skills/emotional intelligence, financial literacy/investment philosophy/economic principles, creative thinking/innovation/problem solving approaches, leadership principles/team building/organizational wisdom, resilience building/overcoming adversity/mental toughness, purpose finding/meaning creation/legacy building, minimalism/essentialism/intentional living, gratitude practices/positive psychology/happiness research. Emphasize practical wisdom/actionable insights/real-world applications, personal development/character building/virtue ethics, success principles/achievement strategies/goal setting methodologies, work-life balance/stress management/inner peace cultivation, continuous learning/intellectual growth/skill development, authentic living/value alignment/integrity principles. Include specific details about philosophical concepts/practical applications/daily practices, historical context/modern relevance/timeless principles, scientific backing/research evidence/proven methodologies, personal transformation/behavioral change/mindset shifts. Focus on inspirational content/motivational frameworks/life-changing perspectives that encourage self-improvement/personal growth/meaningful living while maintaining family-friendly/professional/uplifting tone throughout.",
+  "morals": `Moral lesson stories showing virtue and integrity rewarded through realistic scenarios with escalating difficulty levels. Focus on workplace integrity/whistleblowing/standing up to corruption, small acts of kindness/helping strangers/community service, honesty in business/returning lost items/admitting mistakes, family loyalty/caring for elderly parents/sibling reconciliation, friendship loyalty/keeping secrets/defending others, academic integrity/refusing to cheat/helping struggling classmates, financial honesty/paying debts/refusing bribes/ethical investing, environmental responsibility/conservation efforts/sustainable living, standing up to bullying/discrimination/social injustice, forgiveness/second chances/redemption stories, perseverance through hardship/overcoming addiction/career setbacks, mentorship/teaching/passing on wisdom, charitable giving/volunteering/sacrificing for others, courage in dangerous situations/moral stands/speaking truth to power, patience/delayed gratification/long-term thinking, humility/admitting wrongs/learning from criticism. Emphasize realistic consequences/believable rewards, gradual character development/personal growth, community recognition/career advancement/relationship improvements, inner peace/self-respect/legacy building, unexpected opportunities/doors opening/positive reputation effects. Include specific details about initial moral dilemmas/temptations faced/pressure to compromise, step-by-step decision-making process/internal struggles/support systems, immediate costs/short-term sacrifices/social pressure, gradual positive outcomes/compound benefits/ripple effects on others, long-term vindication/success/fulfillment. Stories should feature: relatable modern settings/contemporary challenges, ordinary people/accessible role models, measurable improvements/tangible rewards, realistic timeframes/believable progression, authentic dialogue/genuine emotions, practical wisdom/applicable lessons. Present documented cases/real-world examples/contemporary success stories that demonstrate moral behavior leading to genuine personal and professional rewards.`
 };
 
 const normalizeCategoryId = (value?: string) =>
@@ -51,6 +49,13 @@ export const getCategoryInstruction = (category?: string) => {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 type ChatUsage = OpenAI.Chat.Completions.ChatCompletion["usage"] | null | undefined;
+type ResponsesUsage =
+  | {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  }
+  | undefined;
 
 const mapUsage = (usage: ChatUsage, model: string): AiUsageMetrics | undefined => {
   if (!usage) return undefined;
@@ -122,8 +127,12 @@ const parseJson = (content: string) => {
 };
 
 const normalizeScene = (scene: any, index: number): AiScene => {
-  const description =
-    typeof scene?.description === "string" ? scene.description.trim().slice(0, 2000) : "";
+  const audio =
+    typeof scene?.audio === "string"
+      ? scene.audio.trim().slice(0, 2000)
+      : typeof scene?.description === "string"
+        ? scene.description.trim().slice(0, 2000)
+        : "";
   const imagePrompt =
     typeof scene?.imagePrompt === "string"
       ? scene.imagePrompt.trim().slice(0, 1000)
@@ -146,7 +155,7 @@ const normalizeScene = (scene: any, index: number): AiScene => {
 
   return {
     sceneNumber: index + 1,
-    description,
+    description: audio,
     imagePrompt,
     bRollPrompt,
     duration: clamp(rawDuration || 5, 1, 6)
@@ -196,12 +205,20 @@ const stringifyScriptPayload = (value: unknown): string => {
   return String(value);
 };
 
-const buildScenesPrompt = (topic: string, sceneCount: number, style: ProjectStyle, script?: string) => {
+const buildScenesPrompt = (
+  topic: string,
+  sceneCount: number | undefined,
+  style: ProjectStyle,
+  script?: string
+) => {
+  const countLine = sceneCount
+    ? `Create ${sceneCount} short scenes for a faceless video.`
+    : "Create short scenes for a faceless video and choose the best number of scenes to cover the script naturally (aim around 6-8 scenes).";
   const parts = [
-    `Create ${sceneCount} short scenes for a faceless video. Topic reference: "${topic}".`,
+    `${countLine} Topic reference: "${topic}".`,
     "Use the provided script as the primary source and preserve its order and intent.",
     `Visual style: ${styleGuidance[style]}.`,
-    "For each scene include: description (1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
+    "For each scene include: audio (what the voiceover should say, 1-2 sentences), imagePrompt (cinematic still prompt), bRollPrompt (supporting footage), and duration in seconds.",
     "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
     "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
     "If the topic or script hints at a historical period or place (e.g., 1920s Paris), explicitly anchor each imagePrompt and bRollPrompt in that era with era-accurate details (fashion, tech, lighting, vehicles, architecture)."
@@ -220,7 +237,7 @@ const buildVeoScenesPrompt = (topic: string, style: ProjectStyle, script?: strin
     `Topic reference: "${topic}". Let the model choose the right number of scenes to fit ~8s (usually 3-6 scenes).`,
     "Use the provided script as the primary source and preserve its order and intent.",
     `Visual style: ${styleGuidance[style]}.`,
-    "For each scene include: description (voiceover line), imagePrompt (era/place-accurate cinematic still), bRollPrompt (supporting footage for that exact line), and duration in seconds.",
+    "For each scene include: audio (voiceover line), imagePrompt (era/place-accurate cinematic still), bRollPrompt (supporting footage for that exact line), and duration in seconds.",
     "Each scene/b-roll should be between 1-4 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
     "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
     "If the topic or script hints at a historical period or place (e.g., 1920s Paris), explicitly anchor each imagePrompt and bRollPrompt in that era with era-accurate details (fashion, tech, lighting, vehicles, architecture).",
@@ -266,7 +283,7 @@ const buildRegeneratePrompt = (params: {
   const parts = [
     `Regenerate scene ${sceneNumber ?? 1} for a faceless video on "${topic}".`,
     `Visual style: ${styleGuidance[style]}.`,
-    "Provide fields: description, imagePrompt, bRollPrompt, duration (seconds).",
+    "Provide fields: audio (voiceover line), imagePrompt, bRollPrompt, duration (seconds).",
     "Make every visual cue consistent with any implied era/place in the topic/script/context (e.g., 1920s Paris = period clothing, vintage vehicles, muted film grain, era-accurate props)."
   ];
   if (context) {
@@ -327,6 +344,53 @@ const makeScriptPrompt = (params: {
   return lines.join("\n");
 };
 
+const buildScriptInstructions = (categoryInstructions?: string) => {
+  const base = [
+    "You write faceless short-form video scripts with strong hooks, curiosity gaps, and concise narration.",
+    "Avoid host mentions; keep narration visual and spoken-friendly.",
+    "Return only the script text (no JSON)."
+  ];
+  if (categoryInstructions) {
+    base.push("Category-specific rules (strict):");
+    base.push(categoryInstructions);
+  }
+  return base.join("\n");
+};
+
+const extractResponseText = (resp: any): string => {
+  const direct = typeof resp?.output_text === "string" ? resp.output_text : "";
+  if (direct) return direct.trim();
+  const outputs = Array.isArray(resp?.output) ? resp.output : [];
+  const firstText =
+    outputs
+      .map((item: any) => {
+        if (typeof item === "string") return item;
+        if (typeof item?.content === "string") return item.content;
+        if (Array.isArray(item?.content)) {
+          return item.content
+            .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+            .filter(Boolean)
+            .join("\n");
+        }
+        if (typeof item?.text === "string") return item.text;
+        return "";
+      })
+      .find((val: string) => val.trim().length > 0) ?? "";
+  return firstText.trim();
+};
+
+const mapResponseUsage = (usage: ResponsesUsage, model: string): AiUsageMetrics | undefined => {
+  if (!usage) return undefined;
+  return {
+    promptTokens: usage.input_tokens ?? 0,
+    completionTokens: usage.output_tokens ?? 0,
+    totalTokens:
+      usage.total_tokens ??
+      (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+    model
+  };
+};
+
 export const generateScriptWithAi = async (params: {
   prompt: string;
   language: string;
@@ -343,24 +407,17 @@ export const generateScriptWithAi = async (params: {
   }
 
   try {
-    const completion = await requireClient().chat.completions.create({
+    const clientInstance = requireClient();
+    const resp = await (clientInstance as any).responses.create({
       model: defaultModel,
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You write faceless short-form video scripts with strong hooks, curiosity gaps, and concise narration. Avoid host mentions."
-        },
-        {
-          role: "user",
-          content: makeScriptPrompt({ prompt, language, duration, categoryInstructions })
-        }
-      ]
+      // temperature: 0.7,
+      instructions: buildScriptInstructions(categoryInstructions),
+      input: makeScriptPrompt({ prompt, language, duration, categoryInstructions })
+      // store: false // optional: disable OpenAI-side storage/logs if desired
     });
-    const content = completion.choices[0]?.message?.content?.trim();
-    if (!content) throw new Error("Empty response from model");
-    return { script: content, usage: mapUsage(completion.usage, defaultModel) };
+    const text = extractResponseText(resp);
+    if (!text) throw new Error("Empty response from model");
+    return { script: text, usage: mapResponseUsage(resp?.usage as ResponsesUsage, defaultModel) };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("AI script generation failed", err);
@@ -482,7 +539,7 @@ const refineScriptWithGemini = async (params: {
 
 const generateScenesWithOpenAi = async (params: {
   topic: string;
-  sceneCount: number;
+  sceneCount?: number;
   script?: string;
   style: ProjectStyle;
   refine: boolean;
@@ -500,7 +557,7 @@ const generateScenesWithOpenAi = async (params: {
   const completion = await requireClient().chat.completions.create({
     model: defaultModel,
     response_format: { type: "json_object" },
-    temperature: 0.7,
+    temperature: 1,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildScenesPrompt(topic, sceneCount, style, scriptForScenes) }
@@ -522,7 +579,7 @@ const generateScenesWithOpenAi = async (params: {
 
 const generateScenesWithGemini = async (params: {
   topic: string;
-  sceneCount: number;
+  sceneCount?: number;
   script?: string;
   style: ProjectStyle;
   refine: boolean;
@@ -569,15 +626,13 @@ export const generateScenesForTopic = async (params: {
   usage?: AiUsageMetrics;
   refinementUsage?: AiUsageMetrics;
 }> => {
-  const {
-    topic,
-    sceneCount = 4,
-    script,
-    style = defaultStyle,
-    provider = defaultProvider,
-    refine = false
-  } = params;
-  const targetCount = clamp(sceneCount, 1, 20);
+  const { topic, sceneCount, script, style = defaultStyle, refine = false } =
+    params;
+  const provider = defaultProvider;
+  const targetCount =
+    typeof sceneCount === "number" && Number.isFinite(sceneCount)
+      ? clamp(sceneCount, 1, 20)
+      : undefined;
 
   if (provider === "gemini" || provider === "veo") {
     return generateScenesWithGemini({
@@ -717,7 +772,7 @@ export const regenerateSceneWithAi = async (params: {
     const completion = await requireClient().chat.completions.create({
       model: defaultModel,
       response_format: { type: "json_object" },
-      temperature: 0.75,
+      // temperature: 0.75,
       messages: [
         { role: "system", content: SINGLE_SCENE_PROMPT },
         { role: "user", content: buildRegeneratePrompt({ ...params, style }) }

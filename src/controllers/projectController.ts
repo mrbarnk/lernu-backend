@@ -297,10 +297,11 @@ export const createProject = async (req: Request, res: Response) => {
   const topicValue = topic ?? deriveTopicFromScript(scriptText) ?? deriveTopicFromScenes(providedScenes);
   if (!topicValue) throw new HttpError(400, "Topic, script, or scene descriptions are required");
 
-  const targetSceneCount = sceneCount ?? estimateSceneCountFromScript(scriptText);
+  const targetSceneCount = sceneCount;
 
   let generatedScenes: AiScene[] = [];
   let refinedScriptUsed: string | undefined;
+  const sceneProvider = provider ?? "gemini";
   if (shouldGenerate) {
     if (!scriptText) throw new HttpError(400, "Script is required to generate scenes");
     enforceAiRateLimit(
@@ -313,7 +314,7 @@ export const createProject = async (req: Request, res: Response) => {
       sceneCount: targetSceneCount,
       script: scriptText,
       style,
-      provider,
+      provider: sceneProvider,
       refine
     });
     generatedScenes = generationResult.scenes;
@@ -322,7 +323,7 @@ export const createProject = async (req: Request, res: Response) => {
       userId: req.user._id,
       action: "project:create:generate-scenes",
       usage: generationResult.usage,
-      metadata: { projectTitle: title, provider: provider ?? "openai" }
+      metadata: { projectTitle: title, provider: sceneProvider }
     });
     if (generationResult.refinementUsage) {
       await recordAiUsage({
@@ -541,7 +542,7 @@ export const generateScenes = async (req: Request, res: Response) => {
   if (!scriptText) throw new HttpError(400, "Script is required");
   const topic = rawTopic ?? deriveTopicFromScript(scriptText);
   if (!topic) throw new HttpError(400, "Script is required to derive a topic");
-  const targetSceneCount = sceneCount ?? estimateSceneCountFromScript(scriptText);
+  const targetSceneCount = sceneCount;
 
   enforceAiRateLimit(
     `${req.user._id.toString()}:generate`,
@@ -549,12 +550,13 @@ export const generateScenes = async (req: Request, res: Response) => {
     "Too many AI scene generations. Try again later."
   );
 
+  const sceneProvider = provider ?? "gemini";
   const generationResult = await generateScenesForTopic({
     topic,
     sceneCount: targetSceneCount,
     script: scriptText,
     style,
-    provider,
+    // provider: sceneProvider,
     refine
   });
   const scenes = generationResult.scenes;
@@ -565,7 +567,7 @@ export const generateScenes = async (req: Request, res: Response) => {
     userId: req.user._id,
     action: "project:generate-scenes",
     usage: generationResult.usage,
-    metadata: { topic, provider: provider ?? "openai" }
+    metadata: { topic, provider: sceneProvider }
   });
   if (generationResult.refinementUsage) {
     await recordAiUsage({
