@@ -18,6 +18,9 @@ const app = express();
 const httpServer = createServer(app);
 createSocketServer(httpServer);
 
+// Enable trust proxy so rate limiting and IP-based features respect X-Forwarded-For (common with proxies/load balancers).
+app.set("trust proxy", true);
+
 app.use(
   cors({
     origin: true,

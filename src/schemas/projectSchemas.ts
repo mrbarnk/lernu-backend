@@ -16,6 +16,7 @@ const styleEnum = z.enum([
   "voxel",
   "anime",
   "pixar3d",
+  "grunge"
 ]);
 const providerEnum = z.enum(["openai", "gemini", "veo"]);
 const sceneInputSchema = z.object({
