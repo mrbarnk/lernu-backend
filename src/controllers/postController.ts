@@ -8,6 +8,7 @@ import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagi
 import { serializePost } from "../utils/serializers";
 import { maybeAwardDailyContributionCredits, CONTRIBUTION_CREDIT_REWARD } from "../services/creditService";
 import { notifyMentions, notifyUser } from "../services/notificationService";
+import { sanitizeText } from "../utils/sanitize";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -101,9 +102,12 @@ export const createPost = async (req: Request, res: Response) => {
   if (!category) throw new HttpError(400, "Invalid category");
   if (!req.user) throw new HttpError(401, "Authentication required");
 
+  const safeTitle = sanitizeText(title) || title;
+  const safeContent = sanitizeText(content) || content;
+
   const post = await Post.create({
-    title,
-    content,
+    title: safeTitle,
+    content: safeContent,
     categoryId,
     code,
     images,
@@ -111,12 +115,12 @@ export const createPost = async (req: Request, res: Response) => {
     author: req.user._id
   });
 
-  await notifyMentions(content, req.user._id, post._id, title);
+  await notifyMentions(safeContent, req.user._id, post._id, safeTitle);
 
   await post.populate("author", authorProjection);
   const creditResult = await maybeAwardDailyContributionCredits({
     userId: req.user._id,
-    content
+    content: safeContent
   });
 
   res.status(201).json({
