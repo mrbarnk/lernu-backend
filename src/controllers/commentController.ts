@@ -12,6 +12,7 @@ import {
   notifyMentions,
   notifyUser
 } from "../services/notificationService";
+import { maybeAwardDailyContributionCredits, CONTRIBUTION_CREDIT_REWARD } from "../services/creditService";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -115,7 +116,16 @@ export const createComment = async (req: Request, res: Response) => {
 
   await comment.populate("author", authorProjection);
 
-  res.status(201).json({ comment: serializeComment(comment as any, req.user._id) });
+  const creditResult = await maybeAwardDailyContributionCredits({
+    userId: req.user._id,
+    content
+  });
+
+  res.status(201).json({
+    comment: serializeComment(comment as any, req.user._id),
+    creditsAwarded: creditResult.awarded ? CONTRIBUTION_CREDIT_REWARD : 0,
+    aiCredits: creditResult.credits
+  });
 };
 
 const canModerate = (role: string) => role === "moderator" || role === "admin";

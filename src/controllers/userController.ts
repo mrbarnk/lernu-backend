@@ -36,6 +36,13 @@ export const getOnlineUsersList = async (_req: Request, res: Response) => {
   res.json({ users: getOnlineUsers() });
 };
 
+export const getMyCredits = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const fresh = await User.findById(req.user._id);
+  if (!fresh) throw new HttpError(404, "User not found");
+  res.json({ aiCredits: fresh.aiCredits ?? 0 });
+};
+
 export const getUserPosts = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid user id");
   const { limit, cursor } = parsePagination(req.query, 10, 50);

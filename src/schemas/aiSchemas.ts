@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Types } from "mongoose";
 
 const styleEnum = z.enum([
   "4k-realistic",
@@ -14,6 +15,31 @@ const styleEnum = z.enum([
   "anime",
   "pixer-3d"
 ]);
+
+const objectId = z
+  .string()
+  .trim()
+  .refine((val) => Types.ObjectId.isValid(val), "Invalid id");
+
+const conversationMetaSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  flowStep: z.string().trim().max(100).optional(),
+  generatedScript: z.string().trim().max(20000).optional(),
+  selectedTopic: z.string().trim().max(500).optional(),
+  selectedTopicId: z.string().trim().max(200).optional(),
+  selectedFormat: z.string().trim().max(200).optional(),
+  selectedFormatId: z.string().trim().max(200).optional(),
+  selectedStyle: z.any().optional(),
+  selectedDuration: z.string().trim().max(50).optional()
+});
+
+const sceneSchema = z.object({
+  sceneNumber: z.number().int().min(1),
+  audioCaption: z.string().trim().min(1).max(1000),
+  videoPrompt: z.string().trim().max(2000).optional(),
+  imagePrompt: z.string().trim().max(2000).optional(),
+  duration: z.number().int().positive().max(600).optional()
+});
 
 export const generateScriptSchema = z.object({
   body: z
@@ -53,5 +79,50 @@ export const listVideoGenerationsSchema = z.object({
 export const processVideoSchema = z.object({
   params: z.object({
     id: z.string()
+  })
+});
+
+export const listConversationsSchema = z.object({
+  query: z.object({
+    limit: z.string().optional()
+  })
+});
+
+export const createConversationSchema = z.object({
+  body: z.object({
+    title: z.string().trim().min(1).max(200).optional()
+  })
+});
+
+export const getConversationSchema = z.object({
+  params: z.object({
+    id: objectId
+  })
+});
+
+export const updateConversationSchema = z.object({
+  params: z.object({
+    id: objectId
+  }),
+  body: conversationMetaSchema
+    .partial()
+    .refine((data) => Object.keys(data).length > 0, "Provide at least one field to update")
+});
+
+export const deleteConversationSchema = z.object({
+  params: z.object({
+    id: objectId
+  })
+});
+
+export const addConversationMessageSchema = z.object({
+  params: z.object({
+    id: objectId
+  }),
+  body: z.object({
+    role: z.enum(["assistant", "user"]),
+    content: z.string().trim().min(1).max(20000),
+    options: z.any().optional(),
+    scenes: z.array(sceneSchema).optional()
   })
 });

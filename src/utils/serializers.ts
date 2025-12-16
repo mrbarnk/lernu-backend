@@ -27,6 +27,7 @@ export const serializeUser = (
   level: (user as UserDocument).level,
   isOnline: (user as UserDocument).isOnline,
   role: (user as UserDocument).role,
+  aiCredits: (user as UserDocument).aiCredits,
   badges: (user as UserDocument).badges ?? [],
   followerCount: Array.isArray((user as UserDocument).followers)
     ? (user as UserDocument).followers.length

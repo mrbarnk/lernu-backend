@@ -8,6 +8,7 @@ import {
 import { VideoGeneration } from "../models/VideoGeneration";
 import { processVideoGenerationJob, getVideoGenerationStatus } from "../services/videoJobService";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
+import { consumeUserCredits, refundUserCredits } from "../services/creditService";
 
 const RANDOM_TOPIC_LIBRARY: Record<string, string[]> = {
   "scary-stories": [
@@ -94,6 +95,7 @@ const buildRandomScriptPrompt = (params: {
 };
 
 export const generateScript = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
   const { prompt, language = "en", duration = "60s", topicCategory, format } = req.body as {
     prompt?: string;
     language?: string;
@@ -131,22 +133,36 @@ export const generateScript = async (req: Request, res: Response) => {
 
   if (!aiPrompt) throw new HttpError(400, "Prompt is required");
 
-  const result = await generateScriptWithAi({
-    prompt: aiPrompt,
-    language: language || "en",
-    duration: duration || "60s",
-    categoryInstructions: getCategoryInstruction(topicCategory)
-  });
+  let creditsRemaining: number | undefined;
+  let creditsConsumed = false;
 
-  const script = result.script?.trim();
-  if (!script) throw new HttpError(500, "Failed to generate script with AI");
+  try {
+    creditsRemaining = await consumeUserCredits(req.user._id, 1);
+    creditsConsumed = true;
 
-  res.json({
-    script,
-    ...(resolvedTopic ? { topic: resolvedTopic } : {}),
-    ...(resolvedFormat ? { format: resolvedFormat } : {}),
-    usage: result.usage
-  });
+    const result = await generateScriptWithAi({
+      prompt: aiPrompt,
+      language: language || "en",
+      duration: duration || "60s",
+      categoryInstructions: getCategoryInstruction(topicCategory)
+    });
+
+    const script = result.script?.trim();
+    if (!script) throw new HttpError(500, "Failed to generate script with AI");
+
+    res.json({
+      script,
+      ...(resolvedTopic ? { topic: resolvedTopic } : {}),
+      ...(resolvedFormat ? { format: resolvedFormat } : {}),
+      usage: result.usage,
+      creditsRemaining
+    });
+  } catch (err) {
+    if (creditsConsumed) {
+      await refundUserCredits(req.user._id, 1);
+    }
+    throw err;
+  }
 };
 
 export const generateVideoFromScriptHandler = async (req: Request, res: Response) => {

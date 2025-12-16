@@ -25,6 +25,8 @@ export interface UserAttrs {
   registrationIp?: string;
   registrationRef?: string;
   loginHistory?: LoginHistoryEntry[];
+  aiCredits?: number;
+  aiCreditLastEarnedAt?: Date;
 }
 
 export interface UserDocument extends Document, UserAttrs {
@@ -62,7 +64,9 @@ const userSchema = new Schema<UserDocument>(
         }
       ],
       default: []
-    }
+    },
+    aiCredits: { type: Number, default: 20, min: 0 },
+    aiCreditLastEarnedAt: { type: Date }
   },
   {
     versionKey: false

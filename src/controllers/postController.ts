@@ -6,6 +6,7 @@ import { Report } from "../models/Report";
 import { HttpError } from "../middleware/error";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
 import { serializePost } from "../utils/serializers";
+import { maybeAwardDailyContributionCredits, CONTRIBUTION_CREDIT_REWARD } from "../services/creditService";
 import { notifyMentions, notifyUser } from "../services/notificationService";
 
 const authorProjection =
@@ -113,7 +114,16 @@ export const createPost = async (req: Request, res: Response) => {
   await notifyMentions(content, req.user._id, post._id, title);
 
   await post.populate("author", authorProjection);
-  res.status(201).json({ post: serializePost(post as any, req.user._id) });
+  const creditResult = await maybeAwardDailyContributionCredits({
+    userId: req.user._id,
+    content
+  });
+
+  res.status(201).json({
+    post: serializePost(post as any, req.user._id),
+    creditsAwarded: creditResult.awarded ? CONTRIBUTION_CREDIT_REWARD : 0,
+    aiCredits: creditResult.credits
+  });
 };
 
 export const updatePost = async (req: Request, res: Response) => {

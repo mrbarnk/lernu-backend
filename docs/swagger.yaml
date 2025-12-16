@@ -1140,6 +1140,24 @@ paths:
                 properties:
                   user:
                     $ref: '#/components/schemas/User'
+  /users/me/credits:
+    get:
+      summary: Get current AI credit balance
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current AI credits
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aiCredits:
+                    type: integer
+                    minimum: 0
+        "401":
+          $ref: '#/components/responses/Unauthorized'
   /search:
     get:
       summary: Search users and posts
@@ -1402,7 +1420,10 @@ paths:
   /api/ai/script:
     post:
       summary: Generate a script with AI
-      description: Returns a plain-text faceless video script sized to the selected duration.
+      description: |
+        Returns a plain-text faceless video script sized to the selected duration. Requires authentication and consumes 1 AI credit per request.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -1416,6 +1437,171 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerateScriptResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "429":
+          $ref: '#/components/responses/OutOfCredits'
+
+  /api/ai/conversations:
+    get:
+      summary: List AI conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, maximum: 100 }
+      responses:
+        "200":
+          description: User conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AiConversationListItem'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a new conversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAiConversationRequest'
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    allOf:
+                      - $ref: '#/components/schemas/AiConversation'
+                      - type: object
+                        properties:
+                          messages:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/AiConversationMessage'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/ai/conversations/{id}:
+    get:
+      summary: Get a conversation with messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Conversation detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/AiConversationWithMessages'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update conversation metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAiConversationRequest'
+      responses:
+        "200":
+          description: Updated conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/AiConversation'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/ai/conversations/{id}/messages:
+    post:
+      summary: Append a message to a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAiMessageRequest'
+      responses:
+        "201":
+          description: Message created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/AiConversationMessage'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
 
   /api/ai/video-from-script:
     post:
@@ -1791,6 +1977,13 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example: { "message": "Not found" }
+    OutOfCredits:
+      description: Not enough AI credits
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: { "message": "You have no AI credits left. Please top up to generate more scripts." }
 
   schemas:
     Error:
@@ -1838,6 +2031,7 @@ components:
         joinedAt: { type: string, format: date-time }
         level: { type: integer }
         isOnline: { type: boolean }
+        aiCredits: { type: integer, minimum: 0, description: "Remaining AI script credits" }
         role: { type: string, enum: [user, moderator, admin] }
         followerCount: { type: integer }
         isFollowing: { type: boolean }
@@ -2300,6 +2494,99 @@ components:
             completionTokens: { type: integer }
             totalTokens: { type: integer }
             model: { type: string }
+        creditsRemaining:
+          type: integer
+          description: AI credits left after this request
+    AiConversationListItem:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        updatedAt: { type: string, format: date-time }
+        lastMessageSnippet: { type: string }
+    AiConversation:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        flowStep: { type: string }
+        generatedScript: { type: string }
+        selectedTopic: { type: string }
+        selectedTopicId: { type: string }
+        selectedFormat: { type: string }
+        selectedFormatId: { type: string }
+        selectedStyle:
+          type: object
+          description: Style metadata echoed from the frontend
+        selectedDuration: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AiConversationWithMessages:
+      allOf:
+        - $ref: '#/components/schemas/AiConversation'
+        - type: object
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/AiConversationMessage'
+    SceneSequence:
+      type: object
+      properties:
+        sceneNumber: { type: integer }
+        audioCaption: { type: string }
+        videoPrompt: { type: string }
+        imagePrompt: { type: string }
+        duration: { type: integer, nullable: true, description: "Seconds" }
+    AiConversationMessage:
+      type: object
+      properties:
+        id: { type: string }
+        role:
+          type: string
+          enum: [assistant, user]
+        content: { type: string }
+        options:
+          type: object
+          nullable: true
+          description: Optional metadata/options echoed from the UI
+        scenes:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SceneSequence'
+        createdAt: { type: string, format: date-time }
+    CreateAiConversationRequest:
+      type: object
+      properties:
+        title: { type: string }
+    UpdateAiConversationRequest:
+      type: object
+      properties:
+        title: { type: string }
+        flowStep: { type: string }
+        generatedScript: { type: string }
+        selectedTopic: { type: string }
+        selectedTopicId: { type: string }
+        selectedFormat: { type: string }
+        selectedFormatId: { type: string }
+        selectedStyle: { type: object }
+        selectedDuration: { type: string }
+    CreateAiMessageRequest:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [assistant, user]
+        content: { type: string }
+        options:
+          type: object
+          nullable: true
+        scenes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SceneSequence'
     VideoFromScriptRequest:
       type: object
       required: [script]
