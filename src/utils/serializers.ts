@@ -166,6 +166,9 @@ export const serializeNotification = (
     post,
     comment,
     createdAt: notification.createdAt,
+    displayTime: notification.createdAt
+      ? formatDisplayTime(new Date(notification.createdAt))
+      : undefined,
     isRead: notification.isRead
   };
 };
