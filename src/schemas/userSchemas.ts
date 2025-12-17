@@ -15,7 +15,7 @@ export const updateUserSchema = z.object({
 
 export const searchUsersSchema = z.object({
   query: z.object({
-    q: z.string().min(1),
+    q: z.string().min(1).max(50),
     limit: z.string().optional()
   })
 });

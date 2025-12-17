@@ -13,6 +13,7 @@ import {
   notifyUser
 } from "../services/notificationService";
 import { maybeAwardDailyContributionCredits, CONTRIBUTION_CREDIT_REWARD } from "../services/creditService";
+import { sanitizeText } from "../utils/sanitize";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -68,6 +69,8 @@ export const createComment = async (req: Request, res: Response) => {
     if (!reel) throw new HttpError(404, "Reel not found");
   }
 
+  const safeContent = sanitizeText(content) || content;
+
   let parentComment = null;
   if (parentId) {
     ensureValidObjectId(parentId, "Invalid parent comment");
@@ -84,7 +87,7 @@ export const createComment = async (req: Request, res: Response) => {
   const comment = await Comment.create({
     postId,
     reelId,
-    content,
+    content: safeContent,
     code,
     images,
     parentId: parentId ?? null,
@@ -111,14 +114,14 @@ export const createComment = async (req: Request, res: Response) => {
   });
 
   if (post) {
-    await notifyMentions(content, req.user._id, post._id, post.title || undefined);
+    await notifyMentions(safeContent, req.user._id, post._id, post.title || undefined);
   }
 
   await comment.populate("author", authorProjection);
 
   const creditResult = await maybeAwardDailyContributionCredits({
     userId: req.user._id,
-    content
+    content: safeContent
   });
 
   res.status(201).json({
@@ -141,7 +144,9 @@ export const updateComment = async (req: Request, res: Response) => {
   if (!isAuthor && !canModerateRole(role)) throw new HttpError(403, "Forbidden");
 
   const { isAccepted, ...fields } = req.body;
-  Object.assign(comment, fields);
+  if (fields.content !== undefined) comment.content = sanitizeText(fields.content) || fields.content;
+  if (fields.code !== undefined) comment.code = fields.code;
+  if (fields.images !== undefined) comment.images = fields.images;
   if (isAccepted !== undefined && canModerateRole(role)) {
     comment.isAccepted = isAccepted;
   }

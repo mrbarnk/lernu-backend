@@ -151,7 +151,12 @@ export const updatePost = async (req: Request, res: Response) => {
     if (!exists) throw new HttpError(400, "Invalid category");
   }
 
-  Object.assign(post, fields);
+  if (fields.title !== undefined) post.title = sanitizeText(fields.title) || fields.title;
+  if (fields.content !== undefined) post.content = sanitizeText(fields.content) || fields.content;
+  if (fields.categoryId !== undefined) post.categoryId = fields.categoryId;
+  if (fields.code !== undefined) post.code = fields.code;
+  if (fields.images !== undefined) post.images = fields.images;
+  if (fields.tags !== undefined) post.tags = fields.tags;
   if (isPinned !== undefined) post.isPinned = isPinned;
   if (isSolved !== undefined) post.isSolved = isSolved;
   post.isEdited = true;

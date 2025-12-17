@@ -108,7 +108,8 @@ export const updateUser = async (req: Request, res: Response) => {
 export const searchUsers = async (req: Request, res: Response) => {
   const { q } = req.query as { q: string };
   const limit = Math.min(Number(req.query.limit) || 10, 25);
-  const pattern = new RegExp(q, "i");
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(escapeRegex(q), "i");
 
   const users = await User.find(
     { $or: [{ username: pattern }, { displayName: pattern }] },
