@@ -7,7 +7,7 @@ export const communityStats = async (_req: Request, res: Response) => {
   startOfDay.setUTCHours(0, 0, 0, 0);
 
   const [onlineUsers, postsToday, solvedPosts] = await Promise.all([
-    User.countDocuments({ isOnline: true }),
+    User.countDocuments({ }),
     Post.countDocuments({ createdAt: { $gte: startOfDay } }),
     Post.countDocuments({ isSolved: true })
   ]);
