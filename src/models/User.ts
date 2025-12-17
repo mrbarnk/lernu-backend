@@ -65,7 +65,7 @@ const userSchema = new Schema<UserDocument>(
       ],
       default: []
     },
-    aiCredits: { type: Number, default: 20, min: 0 },
+    aiCredits: { type: Number, default: 5, min: 0 },
     aiCreditLastEarnedAt: { type: Date }
   },
   {
