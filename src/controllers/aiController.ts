@@ -9,6 +9,7 @@ import { VideoGeneration } from "../models/VideoGeneration";
 import { processVideoGenerationJob, getVideoGenerationStatus } from "../services/videoJobService";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
 import { consumeUserCredits, refundUserCredits } from "../services/creditService";
+import { recordScriptGeneration } from "../services/aiScriptLoggingService";
 
 const RANDOM_TOPIC_LIBRARY: Record<string, string[]> = {
   "scary-stories": [
@@ -149,6 +150,19 @@ export const generateScript = async (req: Request, res: Response) => {
 
     const script = result.script?.trim();
     if (!script) throw new HttpError(500, "Failed to generate script with AI");
+
+    await recordScriptGeneration({
+      userId: req.user._id,
+      prompt: aiPrompt,
+      script,
+      topic: resolvedTopic,
+      topicCategory,
+      format,
+      resolvedFormat,
+      duration,
+      language,
+      usage: result.usage
+    });
 
     res.json({
       script,

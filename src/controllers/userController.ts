@@ -49,7 +49,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
   const userId = new Types.ObjectId(req.params.id);
 
   const posts = await Post.find({ author: userId, ...buildCursorFilter(cursor) })
-    .sort({ createdAt: -1 })
+    .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
     .populate("author", authorProjection)
     .lean();
@@ -82,7 +82,7 @@ export const getUserPostsByUsername = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
 
   const posts = await Post.find({ author: user._id, ...buildCursorFilter(cursor) })
-    .sort({ createdAt: -1 })
+    .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
     .populate("author", authorProjection)
     .lean();

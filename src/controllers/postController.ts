@@ -41,7 +41,7 @@ export const listPosts = async (req: Request, res: Response) => {
   }
 
   const posts = await Post.find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
     .populate("author", authorProjection)
     .lean();
@@ -149,8 +149,10 @@ export const updatePost = async (req: Request, res: Response) => {
   if (!isAuthor && !canModerateRole(role)) throw new HttpError(403, "Forbidden");
 
   const { isPinned, isSolved, ...fields } = req.body;
-  if ((isPinned !== undefined || isSolved !== undefined) && !canModerateRole(role)) {
-    throw new HttpError(403, "Only moderators can change pin/solve state");
+  const canPin =
+    canModerateRole(role) || (isAuthor && typeof req.user.level === "number" && req.user.level >= 7);
+  if ((isPinned !== undefined || isSolved !== undefined) && (!canModerateRole(role) && !canPin)) {
+    throw new HttpError(403, "Only moderators or authors with level 7+ can change pin/solve state");
   }
 
   if (fields.categoryId) {
