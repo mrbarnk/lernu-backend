@@ -40,7 +40,8 @@ export const cursorSchema = z.object({
     cursor: z.string().optional(),
     limit: z.string().optional(),
     categoryId: z.string().optional(),
-    search: z.string().optional()
+    search: z.string().optional(),
+    type: z.enum(["quality"]).optional()
   })
 });
 

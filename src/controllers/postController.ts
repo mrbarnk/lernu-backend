@@ -24,13 +24,21 @@ const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
 
 export const listPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query);
-  const { categoryId, search } = req.query as { categoryId?: string; search?: string };
+  const { categoryId, search, type } = req.query as { categoryId?: string; search?: string; type?: string };
   const filter: Record<string, unknown> = { ...buildCursorFilter(cursor) };
   if (categoryId) {
     ensureValidObjectId(categoryId, "Invalid category");
     filter.categoryId = new Types.ObjectId(categoryId);
   }
   if (search) filter.$text = { $search: search };
+  if (type === "quality") {
+    filter.$expr = {
+      $and: [
+        { $gte: [{ $strLenCP: "$title" }, 24] },
+        { $gte: [{ $strLenCP: "$content" }, 400] }
+      ]
+    };
+  }
 
   const posts = await Post.find(filter)
     .sort({ createdAt: -1 })
