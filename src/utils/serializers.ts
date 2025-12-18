@@ -5,6 +5,9 @@ import { PostDocument } from "../models/Post";
 import { ReelDocument } from "../models/Reel";
 import { UserDocument } from "../models/User";
 import { formatDisplayTime } from "./date";
+import { CourseDocument } from "../models/Course";
+import { CourseLessonDocument } from "../models/CourseLesson";
+import { CourseProgressDocument } from "../models/CourseProgress";
 
 const toId = (value: unknown) =>
   value instanceof Types.ObjectId ? value.toString() : (value as string);
@@ -110,6 +113,7 @@ export const serializeReel = (
     comments: (reel as any).commentsCount ?? 0,
     isLiked: hasUserId(reel.likedBy, currentUserId) ?? false,
     isBookmarked: hasUserId(reel.bookmarkedBy, currentUserId) ?? false,
+    isPinned: (reel as ReelDocument).isPinned ?? false,
     isVisible: reel.isVisible !== false,
     createdAt: reel.createdAt,
     displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined,
@@ -173,5 +177,69 @@ export const serializeNotification = (
       ? formatDisplayTime(new Date(notification.createdAt))
       : undefined,
     isRead: notification.isRead
+  };
+};
+
+export const serializeCourseLesson = (
+  lesson: Partial<CourseLessonDocument> & { _id: Types.ObjectId }
+) => ({
+  id: toId(lesson._id),
+  courseId: lesson.courseId ? toId(lesson.courseId as Types.ObjectId) : undefined,
+  title: lesson.title,
+  content: lesson.content,
+  videoUrl: lesson.videoUrl,
+  durationMinutes: lesson.durationMinutes,
+  orderIndex: lesson.orderIndex,
+  isFree: lesson.isFree ?? false,
+  createdAt: lesson.createdAt,
+  updatedAt: lesson.updatedAt
+});
+
+export const serializeCourse = (
+  course: Partial<CourseDocument> & { _id: Types.ObjectId },
+  options?: { includeLessons?: boolean }
+) => ({
+  id: toId(course._id),
+  author:
+    typeof course.author === "object" && course.author
+      ? serializeUser(course.author as any)
+      : {
+          id: course.author ? toId(course.author as Types.ObjectId) : undefined,
+          displayName: (course as CourseDocument).authorName,
+          avatar: (course as CourseDocument).authorAvatar
+        },
+  title: (course as CourseDocument).title,
+  slug: (course as CourseDocument).slug,
+  description: (course as CourseDocument).description,
+  content: (course as CourseDocument).content,
+  thumbnail: (course as CourseDocument).thumbnail,
+  category: (course as CourseDocument).category,
+  difficulty: (course as CourseDocument).difficulty,
+  durationMinutes: (course as CourseDocument).durationMinutes,
+  lessonsCount: (course as CourseDocument).lessonsCount ?? 0,
+  enrolledCount: (course as CourseDocument).enrolledCount ?? 0,
+  isPublished: (course as CourseDocument).isPublished ?? false,
+  isFeatured: (course as CourseDocument).isFeatured ?? false,
+  createdAt: course.createdAt,
+  updatedAt: course.updatedAt,
+  lessons:
+    options?.includeLessons && Array.isArray((course as any).lessons)
+      ? ((course as any).lessons as CourseLessonDocument[]).map((l) => serializeCourseLesson(l as any))
+      : undefined
+});
+
+export const serializeCourseProgress = (
+  progress: Partial<CourseProgressDocument> & { _id?: Types.ObjectId },
+  course?: Partial<CourseDocument> & { _id?: Types.ObjectId }
+) => {
+  const lessonsCount = course?.lessonsCount ?? 0;
+  return {
+    courseId: progress.courseId ? toId(progress.courseId as Types.ObjectId) : undefined,
+    completedLessons: progress.completedLessons?.map((id) => toId(id)) ?? [],
+    progressPercent: progress.progressPercent ?? 0,
+    lessonsCount,
+    startedAt: progress.startedAt,
+    lastAccessedAt: progress.lastAccessedAt,
+    completedAt: progress.completedAt
   };
 };

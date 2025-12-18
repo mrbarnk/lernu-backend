@@ -21,6 +21,8 @@ const canViewReel = (reel: any) =>
 const visibilityFilter = () => ({
   $or: [{ isVisible: { $exists: false } }, { isVisible: true }]
 });
+const canPinReel = (req: Request, isAuthor: boolean) =>
+  canModerateRole(req.user?.role) || (isAuthor && hasLevelSeven(req.user));
 
 export const listReels = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
@@ -31,7 +33,7 @@ export const listReels = async (req: Request, res: Response) => {
   const filter = { $and: [baseFilter, visibility] };
 
   const reels = await Reel.find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
     .populate("author", authorProjection)
     .lean();
@@ -72,12 +74,14 @@ export const viewReel = async (req: Request, res: Response) => {
 export const createReel = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const canSetVisibility = hasLevelSeven(req.user) || canModerateRole(req.user.role);
-  const { isVisible, ...fields } = req.body;
+  const { isVisible, isPinned, ...fields } = req.body;
   const visibility =
     canSetVisibility && typeof isVisible === "boolean" ? isVisible : true;
+  const pinValue = canPinReel(req, true) && typeof isPinned === "boolean" ? isPinned : false;
   const reel = await Reel.create({
     ...fields,
     isVisible: visibility,
+    isPinned: pinValue,
     author: req.user._id
   });
   await reel.populate("author", authorProjection);
@@ -93,13 +97,18 @@ export const updateReel = async (req: Request, res: Response) => {
   if (!isAuthor && req.user.role !== "admin" && req.user.role !== "moderator") {
     throw new HttpError(403, "Forbidden");
   }
-  const { isVisible, ...fields } = req.body;
+  const { isVisible, isPinned, ...fields } = req.body;
   const canChangeVisibility = canModerateRole(req.user.role) || (isAuthor && hasLevelSeven(req.user));
+  const canPin = canPinReel(req, isAuthor);
   if (isVisible !== undefined && !canChangeVisibility) {
     throw new HttpError(403, "Only moderators or authors with level 7+ can change visibility");
   }
+  if (isPinned !== undefined && !canPin) {
+    throw new HttpError(403, "Only moderators or authors with level 7+ can pin reels");
+  }
   Object.assign(reel, fields);
   if (isVisible !== undefined) reel.isVisible = isVisible;
+  if (isPinned !== undefined) reel.isPinned = isPinned;
   await reel.save();
   await reel.populate("author", authorProjection);
   res.json({ reel: serializeReel(reel.toObject() as any, req.user._id) });

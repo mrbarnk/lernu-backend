@@ -652,6 +652,337 @@ paths:
                 properties:
                   reel:
                     $ref: '#/components/schemas/Reel'
+
+  /course-categories:
+    get:
+      summary: List course categories
+      responses:
+        "200":
+          description: Course categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items: { $ref: '#/components/schemas/CourseCategory' }
+  /courses:
+    get:
+      summary: List courses (cursor paginated)
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: difficulty
+          schema: { type: string, enum: [beginner, intermediate, advanced] }
+        - in: query
+          name: featured
+          schema: { type: boolean }
+        - in: query
+          name: enrolled
+          schema: { type: boolean, description: "Only courses the current user enrolled in" }
+        - in: query
+          name: cursor
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10, maximum: 50 }
+      responses:
+        "200":
+          description: Courses page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Course' }
+                  nextCursor:
+                    type: string
+                    nullable: true
+    post:
+      summary: Create course
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseCreateRequest'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  course: { $ref: '#/components/schemas/Course' }
+  /courses/featured:
+    get:
+      summary: Featured courses
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 6, maximum: 12 }
+      responses:
+        "200":
+          description: Featured courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Course' }
+  /courses/{slug}:
+    get:
+      summary: Get course by slug (includes lessons)
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  course:
+                    allOf:
+                      - $ref: '#/components/schemas/Course'
+                      - type: object
+                        properties:
+                          lessons:
+                            type: array
+                            items: { $ref: '#/components/schemas/CourseLesson' }
+        "404":
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}:
+    patch:
+      summary: Update course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseUpdateRequest'
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  course: { $ref: '#/components/schemas/Course' }
+    delete:
+      summary: Delete course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /courses/{id}/enroll:
+    post:
+      summary: Enroll in course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enrolledAt: { type: string, format: date-time }
+    delete:
+      summary: Unenroll from course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unenrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /courses/{id}/lessons:
+    get:
+      summary: List lessons for a course
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lessons
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lessons:
+                    type: array
+                    items: { $ref: '#/components/schemas/CourseLesson' }
+    post:
+      summary: Create lesson
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonCreateRequest'
+      responses:
+        "201":
+          description: Created lesson
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lesson: { $ref: '#/components/schemas/CourseLesson' }
+  /courses/{id}/lessons/{lessonId}:
+    patch:
+      summary: Update lesson
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: lessonId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonUpdateRequest'
+      responses:
+        "200":
+          description: Updated lesson
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lesson: { $ref: '#/components/schemas/CourseLesson' }
+    delete:
+      summary: Delete lesson
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: lessonId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted lesson
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+  /courses/{id}/progress:
+    get:
+      summary: Get course progress
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress: { $ref: '#/components/schemas/CourseProgress' }
+  /courses/{id}/lessons/{lessonId}/complete:
+    post:
+      summary: Mark lesson complete
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: lessonId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Completion recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress: { $ref: '#/components/schemas/CourseProgress' }
   /reels/{id}/view:
     post:
       summary: Increment reel view count
@@ -2134,6 +2465,105 @@ components:
         isEdited: { type: boolean }
         isLiked: { type: boolean }
         isBookmarked: { type: boolean }
+    CourseCategory:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        icon: { type: string }
+        color: { type: string }
+    Course:
+      type: object
+      properties:
+        id: { type: string }
+        author: { $ref: '#/components/schemas/User' }
+        title: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        content: { type: string }
+        thumbnail: { type: string }
+        category: { type: string }
+        difficulty: { type: string, enum: [beginner, intermediate, advanced] }
+        durationMinutes: { type: integer }
+        lessonsCount: { type: integer }
+        enrolledCount: { type: integer }
+        isPublished: { type: boolean }
+        isFeatured: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CourseCreateRequest:
+      type: object
+      required: [title, description, content, category, difficulty]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        content: { type: string }
+        thumbnail: { type: string }
+        category: { type: string }
+        difficulty: { type: string, enum: [beginner, intermediate, advanced] }
+        durationMinutes: { type: integer }
+        lessonsCount: { type: integer }
+        isPublished: { type: boolean }
+        isFeatured: { type: boolean }
+    CourseUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        content: { type: string }
+        thumbnail: { type: string }
+        category: { type: string }
+        difficulty: { type: string, enum: [beginner, intermediate, advanced] }
+        durationMinutes: { type: integer }
+        lessonsCount: { type: integer }
+        isPublished: { type: boolean }
+        isFeatured: { type: boolean }
+    CourseLesson:
+      type: object
+      properties:
+        id: { type: string }
+        courseId: { type: string }
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        durationMinutes: { type: integer }
+        orderIndex: { type: integer }
+        isFree: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    LessonCreateRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        durationMinutes: { type: integer }
+        orderIndex: { type: integer }
+        isFree: { type: boolean }
+    LessonUpdateRequest:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        videoUrl: { type: string }
+        durationMinutes: { type: integer }
+        orderIndex: { type: integer }
+        isFree: { type: boolean }
+    CourseProgress:
+      type: object
+      properties:
+        courseId: { type: string }
+        completedLessons:
+          type: array
+          items: { type: string }
+        progressPercent: { type: integer }
+        lessonsCount: { type: integer }
+        startedAt: { type: string, format: date-time }
+        lastAccessedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
     PostCreateRequest:
       type: object
       required: [content, categoryId]

@@ -13,6 +13,7 @@ export interface ReelAttrs {
   totalWatchSeconds?: number;
   lastViewedAt?: Date;
   isVisible?: boolean;
+  isPinned?: boolean;
 }
 
 export interface ReelDocument extends Document, ReelAttrs {
@@ -44,7 +45,8 @@ const reelSchema = new Schema<ReelDocument>(
     commentsCount: { type: Number, default: 0 },
     likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     bookmarkedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    isVisible: { type: Boolean, default: true }
+    isVisible: { type: Boolean, default: true },
+    isPinned: { type: Boolean, default: false }
   },
   { timestamps: { createdAt: true, updatedAt: true }, versionKey: false }
 );

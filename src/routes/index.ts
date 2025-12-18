@@ -15,12 +15,14 @@ import communityRoutes from "./community";
 import projectRoutes from "./projects";
 import aiRoutes from "./ai";
 import contactRoutes from "./contact";
+import courseRoutes from "./courses";
 
 export const registerRoutes = (app: Express) => {
   app.use("/docs", docsRoutes);
   app.use(sitemapRoutes);
   app.use(searchRoutes);
   app.use(contactRoutes);
+  app.use(courseRoutes);
   app.use("/auth", authRoutes);
   app.use("/categories", categoryRoutes);
   app.use("/reels", reelRoutes);
