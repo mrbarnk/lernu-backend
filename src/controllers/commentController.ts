@@ -30,11 +30,11 @@ const getAuthorId = (entity: any) =>
     ? (entity.author as any)._id ?? (entity.author as any)
     : entity?.author;
 const canViewPost = (post: any, req: Request) => {
-  if (post?.isVisible === false) return false;
+  if (post?.isVisible === false || post?.isVisible === "false" || post?.isVisible === 0) return false;
   return true;
 };
 const canViewReel = (reel: any, req: Request) => {
-  if (reel?.isVisible === false) return false;
+  if (reel?.isVisible === false || reel?.isVisible === "false" || reel?.isVisible === 0) return false;
   return true;
 };
 const assertCommentTargetViewable = async (comment: any, req: Request) => {

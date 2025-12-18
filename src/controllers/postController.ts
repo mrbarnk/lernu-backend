@@ -24,9 +24,12 @@ const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
 const hasLevelSeven = (user?: Request["user"]) =>
   typeof user?.level === "number" && user.level >= 7;
 
-const visibilityFilter = () => ({ isVisible: { $ne: false } });
+const visibilityFilter = () => ({
+  $or: [{ isVisible: { $exists: false } }, { isVisible: true }]
+});
 
-const canViewPost = (post: any) => post?.isVisible !== false;
+const canViewPost = (post: any) =>
+  post?.isVisible !== false && post?.isVisible !== "false" && post?.isVisible !== 0;
 
 export const listPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query);

@@ -16,8 +16,11 @@ const ensureObjectId = (id: string) => {
 const canModerateRole = (role?: string) => role === "admin" || role === "moderator";
 const hasLevelSeven = (user?: Request["user"]) =>
   typeof user?.level === "number" && user.level >= 7;
-const canViewReel = (reel: any) => reel?.isVisible !== false;
-const visibilityFilter = () => ({ isVisible: { $ne: false } });
+const canViewReel = (reel: any) =>
+  reel?.isVisible !== false && reel?.isVisible !== "false" && reel?.isVisible !== 0;
+const visibilityFilter = () => ({
+  $or: [{ isVisible: { $exists: false } }, { isVisible: true }]
+});
 
 export const listReels = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
