@@ -38,7 +38,7 @@ app.use(morgan("dev"));
 app.use("/uploads", express.static(path.resolve(env.uploadDir)));
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", ip: _req.ip });
 });
 
 registerRoutes(app);
