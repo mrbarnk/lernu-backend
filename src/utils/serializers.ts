@@ -74,6 +74,7 @@ export const serializePost = (
     isPinned: post.isPinned ?? false,
     isSolved: post.isSolved ?? false,
     isEdited: post.isEdited ?? false,
+    isVisible: post.isVisible !== false,
     isLiked: hasUserId(post.likedBy, currentUserId) ?? false,
     isBookmarked: hasUserId(post.bookmarkedBy, currentUserId) ?? false
   };
@@ -109,6 +110,7 @@ export const serializeReel = (
     comments: (reel as any).commentsCount ?? 0,
     isLiked: hasUserId(reel.likedBy, currentUserId) ?? false,
     isBookmarked: hasUserId(reel.bookmarkedBy, currentUserId) ?? false,
+    isVisible: reel.isVisible !== false,
     createdAt: reel.createdAt,
     displayTime: reel.createdAt ? formatDisplayTime(new Date(reel.createdAt)) : undefined,
     hasMedia: Boolean((reel as ReelDocument).videoUrl || thumbnail)

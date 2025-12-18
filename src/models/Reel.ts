@@ -12,6 +12,7 @@ export interface ReelAttrs {
   views?: number;
   totalWatchSeconds?: number;
   lastViewedAt?: Date;
+  isVisible?: boolean;
 }
 
 export interface ReelDocument extends Document, ReelAttrs {
@@ -42,7 +43,8 @@ const reelSchema = new Schema<ReelDocument>(
     shares: { type: Number, default: 0 },
     commentsCount: { type: Number, default: 0 },
     likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    bookmarkedBy: [{ type: Schema.Types.ObjectId, ref: "User" }]
+    bookmarkedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    isVisible: { type: Boolean, default: true }
   },
   { timestamps: { createdAt: true, updatedAt: true }, versionKey: false }
 );

@@ -22,6 +22,46 @@ paths:
                     type: string
               example: { "status": "ok" }
 
+  /contact:
+    post:
+      summary: Send a contact message
+      description: "Public contact form. Requires SMTP and CONTACT_EMAIL to be configured."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+            example:
+              name: Jane Doe
+              email: jane@example.com
+              subject: Partnership inquiry
+              message: "Hi Lernu team, I'd like to discuss a collaboration."
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+              example: { "message": "Message received" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: { "message": "Subject is required" }
+        "503":
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: { "message": "Contact form temporarily unavailable" }
+
   /auth/signup:
     post:
       summary: Create account
@@ -2017,6 +2057,14 @@ components:
           $ref: '#/components/schemas/User'
         tokens:
           $ref: '#/components/schemas/AuthTokens'
+    ContactRequest:
+      type: object
+      required: [name, email, subject, message]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        subject: { type: string, minLength: 3, maxLength: 120 }
+        message: { type: string, minLength: 10, maxLength: 2000 }
 
     User:
       type: object

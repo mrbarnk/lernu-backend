@@ -25,10 +25,43 @@ const userRole = (req: Request) => req.user?.role ?? "user";
 const canModerateRole = (role: string) => role === "moderator" || role === "admin";
 const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
   a.toString() === b.toString();
+const getAuthorId = (entity: any) =>
+  typeof entity?.author === "object" && entity.author
+    ? (entity.author as any)._id ?? (entity.author as any)
+    : entity?.author;
+const canViewPost = (post: any, req: Request) => {
+  if (post?.isVisible !== false) return true;
+  if (!req.user) return false;
+  if (canModerateRole(userRole(req))) return true;
+  const authorId = getAuthorId(post);
+  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
+};
+const canViewReel = (reel: any, req: Request) => {
+  if (reel?.isVisible !== false) return true;
+  if (!req.user) return false;
+  if (canModerateRole(userRole(req))) return true;
+  const authorId = getAuthorId(reel);
+  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
+};
+const assertCommentTargetViewable = async (comment: any, req: Request) => {
+  if (comment.postId) {
+    const post = await Post.findById(comment.postId);
+    if (!post) throw new HttpError(404, "Post not found");
+    if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  }
+  if (comment.reelId) {
+    const reel = await Reel.findById(comment.reelId);
+    if (!reel) throw new HttpError(404, "Reel not found");
+    if (!canViewReel(reel, req)) throw new HttpError(403, "Reel is not viewable");
+  }
+};
 
 export const getComments = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   ensureValidObjectId(req.params.id, "Invalid post");
+  const post = await Post.findById(req.params.id);
+  if (!post) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
   const filter = {
     postId: new Types.ObjectId(req.params.id),
     parentId: null,
@@ -61,12 +94,14 @@ export const createComment = async (req: Request, res: Response) => {
     ensureValidObjectId(postId, "Invalid post");
     post = await Post.findById(postId);
     if (!post) throw new HttpError(404, "Post not found");
+    if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
   }
 
   if (reelId) {
     ensureValidObjectId(reelId, "Invalid reel");
     reel = await Reel.findById(reelId);
     if (!reel) throw new HttpError(404, "Reel not found");
+    if (!canViewReel(reel, req)) throw new HttpError(403, "Reel is not viewable");
   }
 
   const safeContent = sanitizeText(content) || content;
@@ -131,13 +166,12 @@ export const createComment = async (req: Request, res: Response) => {
   });
 };
 
-const canModerate = (role: string) => role === "moderator" || role === "admin";
-
 export const updateComment = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid comment id");
   const comment = await Comment.findById(req.params.id).populate("author", authorProjection);
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  await assertCommentTargetViewable(comment, req);
 
   const isAuthor = sameId(comment.author as Types.ObjectId, req.user._id);
   const role = userRole(req);
@@ -161,6 +195,7 @@ export const deleteComment = async (req: Request, res: Response) => {
   const comment = await Comment.findById(req.params.id);
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  await assertCommentTargetViewable(comment, req);
 
   const isAuthor = sameId(comment.author as Types.ObjectId, req.user._id);
   if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
@@ -179,6 +214,7 @@ export const likeComment = async (req: Request, res: Response) => {
   const comment = await Comment.findById(req.params.id).populate("author", authorProjection);
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  await assertCommentTargetViewable(comment, req);
 
   const likedBy = comment.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.addToSet(req.user._id);
@@ -202,6 +238,7 @@ export const unlikeComment = async (req: Request, res: Response) => {
   const comment = await Comment.findById(req.params.id).populate("author", authorProjection);
   if (!comment) throw new HttpError(404, "Comment not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  await assertCommentTargetViewable(comment, req);
 
   const likedBy = comment.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.pull(req.user._id);
@@ -219,6 +256,7 @@ export const acceptComment = async (req: Request, res: Response) => {
 
   const post = await Post.findById(comment.postId);
   if (!post) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
 
   const isPostAuthor = sameId(post.author as Types.ObjectId, req.user._id);
   if (!isPostAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
@@ -233,6 +271,10 @@ export const acceptComment = async (req: Request, res: Response) => {
 
 export const reportComment = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
+  ensureValidObjectId(req.params.id, "Invalid comment id");
+  const comment = await Comment.findById(req.params.id);
+  if (!comment) throw new HttpError(404, "Comment not found");
+  await assertCommentTargetViewable(comment, req);
   await Report.create({
     targetType: "comment",
     targetId: req.params.id,
@@ -245,6 +287,9 @@ export const reportComment = async (req: Request, res: Response) => {
 export const getCommentReplies = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid comment id");
   const { limit, cursor } = parsePagination(req.query, 10, 50);
+  const parentComment = await Comment.findById(req.params.id);
+  if (!parentComment) throw new HttpError(404, "Comment not found");
+  await assertCommentTargetViewable(parentComment, req);
   const filter = {
     parentId: new Types.ObjectId(req.params.id),
     ...buildCursorFilter(cursor)

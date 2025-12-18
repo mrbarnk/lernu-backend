@@ -21,24 +21,46 @@ const userRole = (req: Request) => req.user?.role ?? "user";
 const canModerateRole = (role: string) => role === "moderator" || role === "admin";
 const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
   a.toString() === b.toString();
+const hasLevelSeven = (user?: Request["user"]) =>
+  typeof user?.level === "number" && user.level >= 7;
+
+const visibilityFilter = (req: Request) => {
+  if (canModerateRole(userRole(req))) return null;
+  if (req.user) return { $or: [{ isVisible: { $ne: false } }, { author: req.user._id }] };
+  return { isVisible: { $ne: false } };
+};
+
+const canViewPost = (post: any, req: Request) => {
+  if (post?.isVisible !== false) return true;
+  if (!req.user) return false;
+  if (canModerateRole(userRole(req))) return true;
+  const authorId =
+    typeof post.author === "object" && post.author
+      ? (post.author as any)._id ?? (post.author as any)
+      : post.author;
+  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
+};
 
 export const listPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query);
   const { categoryId, search, type } = req.query as { categoryId?: string; search?: string; type?: string };
-  const filter: Record<string, unknown> = { ...buildCursorFilter(cursor) };
+  const baseFilter: Record<string, unknown> = { ...buildCursorFilter(cursor) };
   if (categoryId) {
     ensureValidObjectId(categoryId, "Invalid category");
-    filter.categoryId = new Types.ObjectId(categoryId);
+    baseFilter.categoryId = new Types.ObjectId(categoryId);
   }
-  if (search) filter.$text = { $search: search };
+  if (search) baseFilter.$text = { $search: search };
   if (type === "quality") {
-    filter.$expr = {
+    baseFilter.$expr = {
       $and: [
         { $gte: [{ $strLenCP: "$title" }, 24] },
         { $gte: [{ $strLenCP: "$content" }, 400] }
       ]
     };
   }
+
+  const visibility = visibilityFilter(req);
+  const filter = visibility ? { $and: [baseFilter, visibility] } : baseFilter;
 
   const posts = await Post.find(filter)
     .sort({ isPinned: -1, createdAt: -1 })
@@ -63,8 +85,11 @@ export const trendingPosts = async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 3, 10);
   const hours = parseWindowHours(req.query.window as string);
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const baseFilter: Record<string, unknown> = { createdAt: { $gte: since } };
+  const visibility = visibilityFilter(req);
+  const filter = visibility ? { $and: [baseFilter, visibility] } : baseFilter;
 
-  const posts = await Post.find({ createdAt: { $gte: since } })
+  const posts = await Post.find(filter)
     .populate("author", authorProjection)
     .lean();
 
@@ -83,12 +108,17 @@ export const trendingPosts = async (req: Request, res: Response) => {
 
 export const trendingTags = async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 10, 25);
-  const tags = await Post.aggregate([
+  const visibility = visibilityFilter(req);
+  const pipeline: Record<string, unknown>[] = [];
+  if (visibility) pipeline.push({ $match: visibility });
+  pipeline.push(
     { $unwind: "$tags" },
     { $group: { _id: { $toLower: "$tags" }, count: { $sum: 1 } } },
     { $sort: { count: -1 } },
     { $limit: limit }
-  ]);
+  );
+
+  const tags = await Post.aggregate(pipeline);
 
   res.json({
     topics: tags.map((t) => ({ tag: t._id, count: t.count }))
@@ -101,6 +131,7 @@ export const getPost = async (req: Request, res: Response) => {
     .populate("author", authorProjection)
     .lean();
   if (!post) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
   res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
 
@@ -112,6 +143,9 @@ export const createPost = async (req: Request, res: Response) => {
 
   const safeTitle = sanitizeText(title) || title;
   const safeContent = sanitizeText(content) || content;
+  const canSetVisibility = hasLevelSeven(req.user) || canModerateRole(userRole(req));
+  const isVisible =
+    canSetVisibility && typeof req.body.isVisible === "boolean" ? req.body.isVisible : true;
 
   const post = await Post.create({
     title: safeTitle,
@@ -120,7 +154,8 @@ export const createPost = async (req: Request, res: Response) => {
     code,
     images,
     tags,
-    author: req.user._id
+    author: req.user._id,
+    isVisible
   });
 
   await notifyMentions(safeContent, req.user._id, post._id, safeTitle);
@@ -148,11 +183,15 @@ export const updatePost = async (req: Request, res: Response) => {
   const role = userRole(req);
   if (!isAuthor && !canModerateRole(role)) throw new HttpError(403, "Forbidden");
 
-  const { isPinned, isSolved, ...fields } = req.body;
+  const { isPinned, isSolved, isVisible, ...fields } = req.body;
   const canPin =
     canModerateRole(role) || (isAuthor && typeof req.user.level === "number" && req.user.level >= 7);
+  const canChangeVisibility = canModerateRole(role) || (isAuthor && hasLevelSeven(req.user));
   if ((isPinned !== undefined || isSolved !== undefined) && (!canModerateRole(role) && !canPin)) {
     throw new HttpError(403, "Only moderators or authors with level 7+ can change pin/solve state");
+  }
+  if (isVisible !== undefined && !canChangeVisibility) {
+    throw new HttpError(403, "Only moderators or authors with level 7+ can change visibility");
   }
 
   if (fields.categoryId) {
@@ -169,6 +208,7 @@ export const updatePost = async (req: Request, res: Response) => {
   if (fields.tags !== undefined) post.tags = fields.tags;
   if (isPinned !== undefined) post.isPinned = isPinned;
   if (isSolved !== undefined) post.isSolved = isSolved;
+  if (isVisible !== undefined) post.isVisible = isVisible;
   post.isEdited = true;
 
   await post.save();
@@ -192,6 +232,7 @@ export const likePost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
 
   const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.addToSet(req.user._id);
@@ -214,6 +255,7 @@ export const unlikePost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
 
   const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.pull(req.user._id);
@@ -228,6 +270,7 @@ export const bookmarkPost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
 
   const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.addToSet(req.user._id);
@@ -241,6 +284,7 @@ export const unbookmarkPost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
 
   const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.pull(req.user._id);
@@ -251,18 +295,20 @@ export const unbookmarkPost = async (req: Request, res: Response) => {
 
 export const sharePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
-  const post = await Post.findByIdAndUpdate(
-    req.params.id,
-    { $inc: { shares: 1 } },
-    { new: true }
-  ).populate("author", authorProjection);
+  const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  post.shares = (post.shares ?? 0) + 1;
+  await post.save();
   res.json({ post: serializePost(post as any, req.user?._id) });
 };
 
 export const reportPost = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   ensureValidObjectId(req.params.id, "Invalid post id");
+  const post = await Post.findById(req.params.id);
+  if (!post) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
   await Report.create({
     targetType: "post",
     targetId: req.params.id,

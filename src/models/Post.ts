@@ -17,6 +17,7 @@ export interface PostAttrs {
   tags?: string[];
   isPinned?: boolean;
   isSolved?: boolean;
+  isVisible?: boolean;
 }
 
 export interface PostDocument extends Document, PostAttrs {
@@ -60,6 +61,7 @@ const postSchema = new Schema<PostDocument>(
     bookmarkedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     isPinned: { type: Boolean, default: false },
     isSolved: { type: Boolean, default: false },
+    isVisible: { type: Boolean, default: true },
     isEdited: { type: Boolean, default: false }
   },
   {
