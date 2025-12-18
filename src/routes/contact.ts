@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { submitContact } from "../controllers/contactController";
 import { validate } from "../middleware/validate";
 import { contactSchema } from "../schemas/contactSchema";
+import { submitContact } from "../controllers/contactController";
+import { strictLimiter } from "../middleware/rateLimiters";
 
 const router = Router();
 
-router.post("/contact", validate(contactSchema), submitContact);
+router.post("/contact", strictLimiter, validate(contactSchema), submitContact);
 
 export default router;

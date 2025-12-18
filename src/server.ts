@@ -6,13 +6,13 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
-import rateLimit from "express-rate-limit";
 import { env } from "./config/env";
 import { connectDatabase } from "./config/db";
 import { registerRoutes } from "./routes";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { createSocketServer } from "./realtime/socketServer";
 import { resetOnlineUsers } from "./services/presenceService";
+import { generalLimiter } from "./middleware/rateLimiters";
 
 const app = express();
 const httpServer = createServer(app);
@@ -28,10 +28,7 @@ app.use(
   })
 );
 app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 300
-  })
+  generalLimiter
 );
 app.use(helmet());
 app.use(express.json({ limit: "5mb" }));
