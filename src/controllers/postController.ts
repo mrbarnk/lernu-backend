@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Types } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 import { Category } from "../models/Category";
 import { Post } from "../models/Post";
 import { Report } from "../models/Report";
@@ -99,7 +99,7 @@ export const trendingPosts = async (req: Request, res: Response) => {
 export const trendingTags = async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 10, 25);
   const visibility = visibilityFilter();
-  const pipeline: Record<string, unknown>[] = [{ $match: visibility }];
+  const pipeline: PipelineStage[] = [{ $match: visibility }];
   pipeline.push(
     { $unwind: "$tags" },
     { $group: { _id: { $toLower: "$tags" }, count: { $sum: 1 } } },
