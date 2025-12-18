@@ -24,22 +24,9 @@ const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) =>
 const hasLevelSeven = (user?: Request["user"]) =>
   typeof user?.level === "number" && user.level >= 7;
 
-const visibilityFilter = (req: Request) => {
-  if (canModerateRole(userRole(req))) return null;
-  if (req.user) return { $or: [{ isVisible: { $ne: false } }, { author: req.user._id }] };
-  return { isVisible: { $ne: false } };
-};
+const visibilityFilter = () => ({ isVisible: { $ne: false } });
 
-const canViewPost = (post: any, req: Request) => {
-  if (post?.isVisible !== false) return true;
-  if (!req.user) return false;
-  if (canModerateRole(userRole(req))) return true;
-  const authorId =
-    typeof post.author === "object" && post.author
-      ? (post.author as any)._id ?? (post.author as any)
-      : post.author;
-  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
-};
+const canViewPost = (post: any) => post?.isVisible !== false;
 
 export const listPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query);
@@ -59,8 +46,8 @@ export const listPosts = async (req: Request, res: Response) => {
     };
   }
 
-  const visibility = visibilityFilter(req);
-  const filter = visibility ? { $and: [baseFilter, visibility] } : baseFilter;
+  const visibility = visibilityFilter();
+  const filter = { $and: [baseFilter, visibility] };
 
   const posts = await Post.find(filter)
     .sort({ isPinned: -1, createdAt: -1 })
@@ -86,8 +73,8 @@ export const trendingPosts = async (req: Request, res: Response) => {
   const hours = parseWindowHours(req.query.window as string);
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   const baseFilter: Record<string, unknown> = { createdAt: { $gte: since } };
-  const visibility = visibilityFilter(req);
-  const filter = visibility ? { $and: [baseFilter, visibility] } : baseFilter;
+  const visibility = visibilityFilter();
+  const filter = { $and: [baseFilter, visibility] };
 
   const posts = await Post.find(filter)
     .populate("author", authorProjection)
@@ -108,9 +95,8 @@ export const trendingPosts = async (req: Request, res: Response) => {
 
 export const trendingTags = async (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 10, 25);
-  const visibility = visibilityFilter(req);
-  const pipeline: Record<string, unknown>[] = [];
-  if (visibility) pipeline.push({ $match: visibility });
+  const visibility = visibilityFilter();
+  const pipeline: Record<string, unknown>[] = [{ $match: visibility }];
   pipeline.push(
     { $unwind: "$tags" },
     { $group: { _id: { $toLower: "$tags" }, count: { $sum: 1 } } },
@@ -131,7 +117,7 @@ export const getPost = async (req: Request, res: Response) => {
     .populate("author", authorProjection)
     .lean();
   if (!post) throw new HttpError(404, "Post not found");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
 
@@ -232,7 +218,7 @@ export const likePost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
   const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.addToSet(req.user._id);
@@ -255,7 +241,7 @@ export const unlikePost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
   const likedBy = post.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.pull(req.user._id);
@@ -270,7 +256,7 @@ export const bookmarkPost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
   const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.addToSet(req.user._id);
@@ -284,7 +270,7 @@ export const unbookmarkPost = async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
   const bookmarked = post.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.pull(req.user._id);
@@ -297,7 +283,7 @@ export const sharePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate("author", authorProjection);
   if (!post) throw new HttpError(404, "Post not found");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   post.shares = (post.shares ?? 0) + 1;
   await post.save();
   res.json({ post: serializePost(post as any, req.user?._id) });
@@ -308,7 +294,7 @@ export const reportPost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id);
   if (!post) throw new HttpError(404, "Post not found");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   await Report.create({
     targetType: "post",
     targetId: req.params.id,

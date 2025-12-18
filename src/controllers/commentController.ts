@@ -30,29 +30,23 @@ const getAuthorId = (entity: any) =>
     ? (entity.author as any)._id ?? (entity.author as any)
     : entity?.author;
 const canViewPost = (post: any, req: Request) => {
-  if (post?.isVisible !== false) return true;
-  if (!req.user) return false;
-  if (canModerateRole(userRole(req))) return true;
-  const authorId = getAuthorId(post);
-  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
+  if (post?.isVisible === false) return false;
+  return true;
 };
 const canViewReel = (reel: any, req: Request) => {
-  if (reel?.isVisible !== false) return true;
-  if (!req.user) return false;
-  if (canModerateRole(userRole(req))) return true;
-  const authorId = getAuthorId(reel);
-  return authorId ? sameId(authorId as Types.ObjectId, req.user._id) : false;
+  if (reel?.isVisible === false) return false;
+  return true;
 };
 const assertCommentTargetViewable = async (comment: any, req: Request) => {
   if (comment.postId) {
     const post = await Post.findById(comment.postId);
     if (!post) throw new HttpError(404, "Post not found");
-    if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+    if (!canViewPost(post, req)) throw new HttpError(404, "Post not found");
   }
   if (comment.reelId) {
     const reel = await Reel.findById(comment.reelId);
     if (!reel) throw new HttpError(404, "Reel not found");
-    if (!canViewReel(reel, req)) throw new HttpError(403, "Reel is not viewable");
+    if (!canViewReel(reel, req)) throw new HttpError(404, "Reel not found");
   }
 };
 
@@ -61,7 +55,7 @@ export const getComments = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post");
   const post = await Post.findById(req.params.id);
   if (!post) throw new HttpError(404, "Post not found");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post, req)) throw new HttpError(404, "Post not found");
   const filter = {
     postId: new Types.ObjectId(req.params.id),
     parentId: null,
@@ -94,14 +88,14 @@ export const createComment = async (req: Request, res: Response) => {
     ensureValidObjectId(postId, "Invalid post");
     post = await Post.findById(postId);
     if (!post) throw new HttpError(404, "Post not found");
-    if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+    if (!canViewPost(post, req)) throw new HttpError(404, "Post not found");
   }
 
   if (reelId) {
     ensureValidObjectId(reelId, "Invalid reel");
     reel = await Reel.findById(reelId);
     if (!reel) throw new HttpError(404, "Reel not found");
-    if (!canViewReel(reel, req)) throw new HttpError(403, "Reel is not viewable");
+    if (!canViewReel(reel, req)) throw new HttpError(404, "Reel not found");
   }
 
   const safeContent = sanitizeText(content) || content;
@@ -256,7 +250,7 @@ export const acceptComment = async (req: Request, res: Response) => {
 
   const post = await Post.findById(comment.postId);
   if (!post) throw new HttpError(404, "Post not found");
-  if (!canViewPost(post, req)) throw new HttpError(403, "Post is not viewable");
+  if (!canViewPost(post, req)) throw new HttpError(404, "Post not found");
 
   const isPostAuthor = sameId(post.author as Types.ObjectId, req.user._id);
   if (!isPostAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
