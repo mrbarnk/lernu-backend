@@ -18,6 +18,7 @@ const ensureObjectId = (value: string, message = "Invalid id") => {
 
 const userRole = (req: Request) => req.user?.role ?? "user";
 const canModerateRole = (role: string) => role === "moderator" || role === "admin";
+const hasLevelSeven = (user?: Request["user"]) => typeof user?.level === "number" && user.level >= 7;
 const sameId = (a: Types.ObjectId | string, b: Types.ObjectId | string) => a.toString() === b.toString();
 
 const visibilityFilter = (req: Request) => {
@@ -127,6 +128,9 @@ export const getCourseLessons = async (req: Request, res: Response) => {
 
 export const createCourse = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
+  if (!hasLevelSeven(req.user) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 users or moderators/admins can create courses");
+  }
   const {
     title,
     description,
@@ -173,7 +177,9 @@ export const updateCourse = async (req: Request, res: Response) => {
   if (!course) throw new HttpError(404, "Course not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   const isAuthor = sameId(course.author as Types.ObjectId, req.user._id);
-  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
+  if ((!isAuthor || !hasLevelSeven(req.user)) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 authors or moderators/admins can update courses");
+  }
 
   const canFeature = canModerateRole(userRole(req));
   const updatable: Partial<typeof course> = {};
@@ -208,7 +214,9 @@ export const deleteCourse = async (req: Request, res: Response) => {
   if (!course) throw new HttpError(404, "Course not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   const isAuthor = sameId(course.author as Types.ObjectId, req.user._id);
-  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
+  if ((!isAuthor || !hasLevelSeven(req.user)) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 authors or moderators/admins can delete courses");
+  }
 
   await Promise.all([
     CourseLesson.deleteMany({ courseId: course._id }),
@@ -260,7 +268,9 @@ export const createLesson = async (req: Request, res: Response) => {
   const course = await Course.findById(req.params.id);
   if (!course) throw new HttpError(404, "Course not found");
   const isAuthor = sameId(course.author as Types.ObjectId, req.user._id);
-  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
+  if ((!isAuthor || !hasLevelSeven(req.user)) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 authors or moderators/admins can manage lessons");
+  }
 
   const { title, content, videoUrl, durationMinutes, orderIndex, isFree } = req.body;
   const targetOrder =
@@ -291,7 +301,9 @@ export const updateLesson = async (req: Request, res: Response) => {
   const course = await Course.findById(req.params.id);
   if (!course) throw new HttpError(404, "Course not found");
   const isAuthor = sameId(course.author as Types.ObjectId, req.user._id);
-  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
+  if ((!isAuthor || !hasLevelSeven(req.user)) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 authors or moderators/admins can manage lessons");
+  }
 
   const lesson = await CourseLesson.findOne({ _id: req.params.lessonId, courseId: course._id });
   if (!lesson) throw new HttpError(404, "Lesson not found");
@@ -316,7 +328,9 @@ export const deleteLesson = async (req: Request, res: Response) => {
   const course = await Course.findById(req.params.id);
   if (!course) throw new HttpError(404, "Course not found");
   const isAuthor = sameId(course.author as Types.ObjectId, req.user._id);
-  if (!isAuthor && !canModerateRole(userRole(req))) throw new HttpError(403, "Forbidden");
+  if ((!isAuthor || !hasLevelSeven(req.user)) && !canModerateRole(userRole(req))) {
+    throw new HttpError(403, "Only level 7 authors or moderators/admins can manage lessons");
+  }
 
   const lesson = await CourseLesson.findOne({ _id: req.params.lessonId, courseId: course._id });
   if (!lesson) throw new HttpError(404, "Lesson not found");
