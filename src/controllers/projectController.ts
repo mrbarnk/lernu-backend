@@ -679,7 +679,7 @@ export const reorderScenes = async (req: Request, res: Response) => {
 
 export const generateScenes = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { topic: rawTopic, sceneCount, script, style, provider, refine, createProject } = req.body as {
+  const { topic: rawTopic, sceneCount, script, style, provider, refine, createProject=true } = req.body as {
     topic?: string;
     sceneCount?: number;
     script?: string;
