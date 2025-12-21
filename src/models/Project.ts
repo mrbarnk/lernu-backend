@@ -13,7 +13,9 @@ export type ProjectStyle =
   | "playground"
   | "voxel"
   | "anime"
-  | "pixer-3d";
+  | "pixer-3d"
+  | "grunge"
+  | "pixar3d";
 
 export interface ProjectAttrs {
   userId: Types.ObjectId;

@@ -715,6 +715,7 @@ export const generateScenes = async (req: Request, res: Response) => {
   const averageSceneDuration = scenes.length ? totalDuration / scenes.length : 0;
 
   let projectId: string | undefined;
+  let responseScenes: ScenePayload[] = [];
   if (createProject) {
     const project = await Project.create({
       userId: req.user._id,
@@ -739,10 +740,23 @@ export const generateScenes = async (req: Request, res: Response) => {
     }));
 
     if (scenesToInsert.length) {
-      await ProjectScene.insertMany(scenesToInsert);
+      const inserted = await ProjectScene.insertMany(scenesToInsert);
+      responseScenes = inserted.sort((a, b) => (a.sceneNumber ?? 0) - (b.sceneNumber ?? 0)) as unknown as ScenePayload[];
     }
 
     projectId = project._id.toString();
+  } else {
+    responseScenes = scenes.map((scene, idx) => ({
+      _id: new Types.ObjectId(),
+      sceneNumber: scene.sceneNumber ?? idx + 1,
+      description: scene.description,
+      narration: scene.narration ?? scene.description,
+      captionText: scene.captionText,
+      timingPlan: scene.timingPlan,
+      imagePrompt: scene.imagePrompt,
+      bRollPrompt: scene.bRollPrompt,
+      duration: scene.duration
+    })) as ScenePayload[];
   }
 
   await recordAiUsage({
@@ -761,10 +775,10 @@ export const generateScenes = async (req: Request, res: Response) => {
   }
 
   res.json({
-    scenes,
+    scenes: responseScenes.map((s) => serializeScene(s)),
     totalDuration,
     averageSceneDuration,
-    bRollCount: scenes.length,
+    bRollCount: responseScenes.length,
     script: generationResult.scriptUsed ?? scriptText,
     refinedScript: generationResult.refinedScript,
     ...(projectId ? { projectId } : {})
