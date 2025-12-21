@@ -16,9 +16,20 @@ const VOICE_ID_MAP: Record<string, string> = {
   "classic-m": "pNInz6obpgDQGcFmaJgB"          // Adam
 };
 
+const isElevenVoiceId = (voiceId?: string) => Boolean(voiceId && /^[A-Za-z0-9]{20,}$/.test(voiceId));
+
 const pickVoiceId = (voiceId?: string) => {
   if (!voiceId) return VOICE_ID_MAP["narrator-deep"];
+  if (isElevenVoiceId(voiceId)) return voiceId;
   return VOICE_ID_MAP[voiceId] ?? VOICE_ID_MAP["narrator-deep"];
+};
+
+export type ElevenVoiceOption = {
+  id: string;
+  name: string;
+  gender?: string;
+  style?: string;
+  previewUrl?: string;
 };
 
 export const elevenLabsAvailable = () => Boolean(env.elevenLabsApiKey);
@@ -64,12 +75,13 @@ export const synthesizeVoice = async (params: {
 };
 
 export const fetchVoicePreviewUrl = async (uiVoiceId: string): Promise<string | null> => {
-  const elevenVoiceId = VOICE_ID_MAP[uiVoiceId];
-  if (!elevenVoiceId) return null;
   const apiKey = env.elevenLabsApiKey;
   if (!apiKey) return null;
 
-  const resp = await fetch(`${ELEVEN_VOICES_BASE_URL}/${elevenVoiceId}`, {
+  const resolvedId = isElevenVoiceId(uiVoiceId) ? uiVoiceId : VOICE_ID_MAP[uiVoiceId];
+  if (!resolvedId) return null;
+
+  const resp = await fetch(`${ELEVEN_VOICES_BASE_URL}/${resolvedId}`, {
     headers: { "xi-api-key": apiKey }
   });
 
@@ -79,4 +91,25 @@ export const fetchVoicePreviewUrl = async (uiVoiceId: string): Promise<string | 
 
   const data = (await resp.json()) as { preview_url?: string };
   return data.preview_url ?? null;
+};
+
+export const fetchElevenLabsVoices = async (): Promise<ElevenVoiceOption[]> => {
+  const apiKey = env.elevenLabsApiKey;
+  if (!apiKey) return [];
+
+  const resp = await fetch(ELEVEN_VOICES_BASE_URL, {
+    headers: { "xi-api-key": apiKey }
+  });
+
+  if (!resp.ok) return [];
+  const data = (await resp.json()) as { voices?: any[] };
+  const voices = data.voices || [];
+
+  return voices.map((voice) => ({
+    id: voice.voice_id,
+    name: voice.name,
+    gender: voice?.labels?.gender,
+    style: voice?.description,
+    previewUrl: voice.preview_url
+  }));
 };

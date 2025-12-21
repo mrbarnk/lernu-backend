@@ -5,7 +5,7 @@ import {
   generateVideoFromScript,
   getCategoryInstruction
 } from "../services/projectAiService";
-import { fetchVoicePreviewUrl } from "../services/voiceService";
+import { fetchElevenLabsVoices, fetchVoicePreviewUrl } from "../services/voiceService";
 import { VideoGeneration } from "../models/VideoGeneration";
 import { processVideoGenerationJob, getVideoGenerationStatus } from "../services/videoJobService";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
@@ -13,14 +13,14 @@ import { consumeUserCredits, refundUserCredits } from "../services/creditService
 import { recordScriptGeneration } from "../services/aiScriptLoggingService";
 
 const VOICE_OPTIONS = [
-  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "/api/ai/voices/narrator-deep/preview" },
-  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "/api/ai/voices/narrator-warm/preview" },
-  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "/api/ai/voices/storyteller-f/preview" },
-  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "/api/ai/voices/storyteller-m/preview" },
-  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "/api/ai/voices/dramatic-f/preview" },
-  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "/api/ai/voices/mysterious/preview" },
-  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "/api/ai/voices/upbeat-f/preview" },
-  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "/api/ai/voices/classic-m/preview" }
+  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: null },
+  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: null },
+  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: null },
+  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: null },
+  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: null },
+  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: null },
+  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: null },
+  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: null }
 ] as const;
 
 const MUSIC_LIBRARY = [
@@ -225,6 +225,11 @@ export const generateScript = async (req: Request, res: Response) => {
 };
 
 export const listVoiceOptions = async (_req: Request, res: Response) => {
+  const apiVoices = await fetchElevenLabsVoices();
+  if (apiVoices.length) {
+    return res.json({ voices: apiVoices });
+  }
+  // Fallback to static UI voices (no preview without API voice ids)
   res.json({ voices: VOICE_OPTIONS });
 };
 
