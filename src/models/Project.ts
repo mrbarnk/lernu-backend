@@ -70,13 +70,15 @@ const projectSchema = new Schema<ProjectDocument>(
         "cinematic",
         "brick",
         "grudge",
+        "grunge",
         "comic-book",
         "muppet",
         "ghibli",
         "playground",
         "voxel",
         "anime",
-        "pixer-3d"
+        "pixar3d",
+        "grunge"
       ],
       default: "cinematic"
     }

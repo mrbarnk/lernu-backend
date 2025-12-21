@@ -9,6 +9,7 @@ const styleEnum = z.enum([
   "cinematic",
   "brick",
   "grudge",
+  "grunge",
   "comic-book",
   "muppet",
   "ghibli",
