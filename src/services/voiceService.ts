@@ -3,15 +3,16 @@ import { HttpError } from "../middleware/error";
 
 const ELEVEN_BASE_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+// Map UI voice ids to actual ElevenLabs voice ids (public sample voices)
 const VOICE_ID_MAP: Record<string, string> = {
-  "narrator-deep": "narrator-deep",
-  "narrator-warm": "narrator-warm",
-  "storyteller-f": "storyteller-f",
-  "storyteller-m": "storyteller-m",
-  "dramatic-f": "dramatic-f",
-  "mysterious": "mysterious",
-  "upbeat-f": "upbeat-f",
-  "classic-m": "classic-m"
+  "narrator-deep": "ErXwobaYiN019PkySvjV",     // Antoni
+  "narrator-warm": "21m00Tcm4TlvDq8ikWAM",     // Rachel
+  "storyteller-f": "EXAVITQu4vr4xnSDxMaL",     // Bella
+  "storyteller-m": "TxGEqnHWrfWFTfGW9XjX",     // Josh
+  "dramatic-f": "MF3mGyEYCl7XYWbV9V6O",        // Elli
+  "mysterious": "VR6AewLTigWG4xSOukaG",        // Arnold
+  "upbeat-f": "AZnzlk1XvdvUeBnXmlld",          // Domi
+  "classic-m": "pNInz6obpgDQGcFmaJgB"          // Adam
 };
 
 const pickVoiceId = (voiceId?: string) => {
