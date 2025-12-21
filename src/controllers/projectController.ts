@@ -160,7 +160,7 @@ const normalizeInputScenes = (scenes: unknown[]) => {
           ? (scene as any).captionText.trim().slice(0, 2000)
           : undefined;
       const timingPlan =
-        typeof (scene as any)?.timingPlan === "object" && scene?.timingPlan !== null
+        typeof (scene as any)?.timingPlan === "object" && (scene as any)?.timingPlan !== null
           ? (scene as any).timingPlan
           : undefined;
       const imagePrompt =
