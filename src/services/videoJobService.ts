@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { env } from "../config/env";
 import { VideoSequence } from "../models/VideoGeneration";
+import { elevenLabsAvailable, synthesizeVoice } from "./voiceService";
 
 const audioModel = "gemini-2.5-flash-preview";
 const imageModel = "imagen-4.0-fast-generate-001";
@@ -13,7 +14,12 @@ const requireClient = () => {
 
 const toDataUri = (base64: string, mime: string) => `data:${mime};base64,${base64}`;
 
-const generateAudioDataUri = async (sequence: VideoSequence) => {
+const generateAudioDataUri = async (sequence: VideoSequence, voiceId?: string) => {
+  if (elevenLabsAvailable()) {
+    const audio = await synthesizeVoice({ text: sequence.audio, voiceId });
+    return audio.audioDataUri;
+  }
+
   const model = requireClient();
   const result = await model.models.generateContent({
     model: audioModel,
@@ -60,7 +66,7 @@ export const processVideoGenerationJob = async (video: any) => {
     for (let idx = 0; idx < video.sequences.length; idx += 1) {
       const seq = video.sequences[idx] as VideoSequence;
       const [audioDataUri, imageDataUri] = await Promise.all([
-        generateAudioDataUri(seq),
+        generateAudioDataUri(seq, video.voiceId),
         generateImageDataUri(seq)
       ]);
       updatedSequences.push({
@@ -90,5 +96,8 @@ export const getVideoGenerationStatus = async (video: any) => ({
   id: video._id.toString(),
   status: video.status ?? "pending",
   progress: video.progress ?? 0,
-  videoUri: video.videoUri ?? null
+  videoUri: video.videoUri ?? null,
+  voiceId: video.voiceId,
+  musicTrackId: video.musicTrackId,
+  musicVolume: video.musicVolume
 });

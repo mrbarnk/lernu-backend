@@ -9,6 +9,9 @@ export type AiProvider = "openai" | "gemini" | "veo";
 export interface AiScene {
   sceneNumber: number;
   description: string;
+  narration?: string;
+  captionText?: string;
+  timingPlan?: Record<string, unknown>;
   imagePrompt: string;
   bRollPrompt: string;
   duration: number;
@@ -150,6 +153,16 @@ const normalizeScene = (scene: any, index: number): AiScene => {
       : typeof scene?.description === "string"
         ? scene.description.trim().slice(0, 2000)
         : "";
+  const narration =
+    typeof scene?.narration === "string"
+      ? scene.narration.trim().slice(0, 2000)
+      : audio;
+  const captionText =
+    typeof scene?.captionText === "string"
+      ? scene.captionText.trim().slice(0, 2000)
+      : undefined;
+  const timingPlan =
+    typeof scene?.timingPlan === "object" && scene?.timingPlan !== null ? scene.timingPlan : undefined;
   const imagePrompt =
     typeof scene?.imagePrompt === "string"
       ? scene.imagePrompt.trim().slice(0, 1000)
@@ -172,7 +185,10 @@ const normalizeScene = (scene: any, index: number): AiScene => {
 
   return {
     sceneNumber: index + 1,
-    description: audio,
+    description: narration || audio,
+    narration,
+    captionText: captionText ?? narration ?? audio,
+    timingPlan,
     imagePrompt,
     bRollPrompt,
     duration: clamp(rawDuration || 5, 1, 6)
@@ -281,7 +297,7 @@ const buildVeoVideoPrompt = (params: {
     "Voiceover + visual plan:",
     ...scenes.map(
       (scene) =>
-        `Scene ${scene.sceneNumber}: VO="${scene.description}" | imagePrompt="${scene.imagePrompt}" | bRollPrompt="${scene.bRollPrompt}" | duration=${scene.duration || 2}s`
+        `Scene ${scene.sceneNumber}: VO="${scene.narration ?? scene.description}" | imagePrompt="${scene.imagePrompt}" | bRollPrompt="${scene.bRollPrompt}" | duration=${scene.duration || 2}s`
     ),
     "Do not add a host. Keep narration as provided. Ensure era-accurate props/wardrobe if implied (e.g., 1920s Paris)."
   ];
@@ -414,12 +430,18 @@ export const generateScriptWithAi = async (params: {
   duration: string;
   provider?: AiProvider;
   categoryInstructions?: string;
+  modelId?: string;
 }): Promise<{ script: string; usage?: AiUsageMetrics }> => {
-  const { prompt, language, duration, provider = defaultProvider, categoryInstructions } = params;
+  const { prompt, language, duration, provider = defaultProvider, categoryInstructions, modelId } =
+    params;
   if (provider === "gemini" || provider === "veo") {
     const userPrompt = makeScriptPrompt({ prompt, language, duration, categoryInstructions });
     console.log({ userPrompt });
-    const { text, usage } = await callGeminiJson({ prompt: userPrompt, temperature: 0.7 });
+    const { text, usage } = await callGeminiJson({
+      prompt: userPrompt,
+      temperature: 0.7,
+      modelName: modelId ?? defaultGeminiModel
+    });
     return { script: text.trim(), usage };
   }
 
@@ -434,7 +456,10 @@ export const generateScriptWithAi = async (params: {
     });
     const text = extractResponseText(resp);
     if (!text) throw new Error("Empty response from model");
-    return { script: text, usage: mapResponseUsage(resp?.usage as ResponsesUsage, defaultModel) };
+    return {
+      script: text,
+      usage: mapResponseUsage(resp?.usage as ResponsesUsage, modelId ?? defaultModel)
+    };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("AI script generation failed", err);
@@ -442,8 +467,8 @@ export const generateScriptWithAi = async (params: {
   }
 };
 
-const callGeminiJson = async (params: { prompt: string; temperature: number }) => {
-  const { prompt, temperature } = params;
+const callGeminiJson = async (params: { prompt: string; temperature: number; modelName?: string }) => {
+  const { prompt, temperature, modelName } = params;
   const clientInstance = requireGeminiClient();
   const result = (await clientInstance.models.generateContent({
     model: defaultGeminiModel,
@@ -470,7 +495,7 @@ const callGeminiJson = async (params: { prompt: string; temperature: number }) =
   const text = extractText(result);
   if (!text) throw new HttpError(500, "Empty response from Gemini");
   const usageMeta = result?.response?.usageMetadata ?? result?.usageMetadata;
-  return { text, usage: mapGeminiUsage(usageMeta, defaultGeminiModel) };
+  return { text, usage: mapGeminiUsage(usageMeta, modelName ?? defaultGeminiModel) };
 };
 
 const buildScriptRefinementPrompt = (params: { script: string; topic?: string }) => {
@@ -753,11 +778,11 @@ export const generateVideoFromScript = async (params: {
 
   const sequences = scenesResult.scenes.map((scene) => ({
     sequenceNumber: scene.sceneNumber,
-    audio: scene.description,
+    audio: scene.narration ?? scene.description,
     imagePrompt: scene.imagePrompt,
     bRollPrompt: scene.bRollPrompt,
     duration: clamp(
-      Math.ceil((scene.description?.split(/\s+/).filter(Boolean).length || 0) / 2.5),
+      Math.ceil(((scene.narration ?? scene.description)?.split(/\s+/).filter(Boolean).length || 0) / 2.5),
       1,
       6
     )

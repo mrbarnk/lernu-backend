@@ -1765,6 +1765,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideoGenerationResponse'
 
+  /api/projects/{projectId}/preview:
+    post:
+      summary: Generate a low-res preview for a project
+      description: Generates a low-res preview (background job) and returns processing status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePreviewRequest'
+      responses:
+        "202":
+          description: Preview generation started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+        "200":
+          description: Preview ready (or current status)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+  /api/projects/{projectId}/preview/status:
+    get:
+      summary: Check preview status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Preview status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResponse'
+
   /api/projects/{projectId}/video/status:
     get:
       summary: Check video generation status
@@ -1812,6 +1859,44 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         "429":
           $ref: '#/components/responses/OutOfCredits'
+
+  /api/ai/voices:
+    get:
+      summary: List narration voices
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Voice options
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voices:
+                    type: array
+                    items: { $ref: '#/components/schemas/VoiceOption' }
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/ai/music:
+    get:
+      summary: List background music tracks
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Music library
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tracks:
+                    type: array
+                    items: { $ref: '#/components/schemas/MusicTrack' }
+        "401":
+          $ref: '#/components/responses/Unauthorized'
 
   /api/ai/conversations:
     get:
@@ -2319,6 +2404,41 @@ paths:
         "404":
           $ref: '#/components/responses/NotFound'
 
+  /api/projects/{projectId}/scenes/{sceneId}/audio:
+    post:
+      summary: Generate scene audio (ElevenLabs)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: sceneId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateSceneAudioRequest'
+      responses:
+        "200":
+          description: Generated audio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audioUri: { type: string }
+                  scene: { $ref: '#/components/schemas/ProjectScene' }
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2721,19 +2841,46 @@ components:
         id: { type: string }
         sceneNumber: { type: integer }
         description: { type: string }
+        audioCaption: { type: string }
+        narration: { type: string }
+        captionText: { type: string }
+        timingPlan:
+          type: object
+          description: "Beat-level timing metadata for highlights"
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
         duration: { type: integer, maximum: 6 }
+        mediaType:
+          type: string
+          enum: [image, video]
+        mediaUri: { type: string }
+        mediaTrimStart: { type: number, minimum: 0 }
+        mediaTrimEnd: { type: number, minimum: 0 }
+        mediaAnimation: { type: string, description: "Pan/zoom animation id for images" }
+        audioUri: { type: string, description: "Generated audio data URI for narration" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AiScene:
       type: object
       properties:
         sceneNumber: { type: integer }
-        description: { type: string }
+        description: { type: string, description: "Legacy audio field" }
+        audioCaption: { type: string, description: "Alias for description" }
+        narration: { type: string, description: "Voice-over text; fallback to description" }
+        captionText: { type: string }
+        timingPlan:
+          type: object
+          description: "Beat-level timing metadata for highlights"
         imagePrompt: { type: string }
         bRollPrompt: { type: string }
         duration: { type: integer, maximum: 6 }
+        mediaType:
+          type: string
+          enum: [image, video]
+        mediaUri: { type: string }
+        mediaTrimStart: { type: number, minimum: 0 }
+        mediaTrimEnd: { type: number, minimum: 0 }
+        mediaAnimation: { type: string }
     Project:
       type: object
       properties:
@@ -2869,6 +3016,9 @@ components:
           type: string
           description: "Script text to split into scenes (required)"
         sceneCount: { type: integer, minimum: 1, maximum: 20 }
+        refine:
+          type: boolean
+          description: "Whether to refine the script lightly before splitting"
         style:
           type: string
           enum:
@@ -2884,6 +3034,12 @@ components:
             - voxel
             - anime
             - pixer-3d
+        provider:
+          type: string
+          enum: [openai, gemini, veo]
+        createProject:
+          type: boolean
+          description: "When true, create a project and save the generated scenes; response includes projectId"
     GenerateScenesResponse:
       type: object
       properties:
@@ -2893,12 +3049,51 @@ components:
         totalDuration: { type: number, description: "Total seconds across scenes" }
         averageSceneDuration: { type: number, description: "Average seconds per scene" }
         bRollCount: { type: integer, description: "Number of scene/b-roll prompts" }
+        projectId:
+          type: string
+          description: "Present when createProject is true"
+    GenerateSceneAudioRequest:
+      type: object
+      properties:
+        voiceId: { type: string }
+        modelId: { type: string }
     GenerateVideoRequest:
       type: object
       properties:
         provider:
           type: string
           enum: [openai, gemini, veo]
+    GeneratePreviewRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [openai, gemini, veo]
+        quality:
+          type: string
+          enum: [sd, hd]
+    PreviewResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [processing, completed]
+        provider:
+          type: string
+        quality:
+          type: string
+          enum: [sd, hd]
+        projectId: { type: string }
+        scenesCount: { type: integer }
+        previewUri:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        progress:
+          type: integer
+          description: Progress percent (0-100)
     VideoGenerationResponse:
       type: object
       properties:
@@ -2955,6 +3150,10 @@ components:
         format:
           type: string
           description: Format id used when asking for a random script.
+        model:
+          type: string
+          description: >
+            Optional model id (e.g., gpt-5.2-mini, bible-knowledge). Ignored for random/topicCategory flows.
     GenerateScriptResponse:
       type: object
       properties:
@@ -2972,9 +3171,29 @@ components:
             completionTokens: { type: integer }
             totalTokens: { type: integer }
             model: { type: string }
+        model:
+          type: string
+          description: Model id used for this generation (if provided)
         creditsRemaining:
           type: integer
           description: AI credits left after this request
+    VoiceOption:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        gender: { type: string }
+        style: { type: string }
+        previewUrl: { type: string }
+    MusicTrack:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        duration: { type: string }
     AiConversationListItem:
       type: object
       properties:
@@ -3085,6 +3304,17 @@ components:
             - voxel
             - anime
             - pixer-3d
+        voiceId:
+          type: string
+          description: Voice id from /api/ai/voices
+        musicTrackId:
+          type: string
+          description: Track id from /api/ai/music
+        musicVolume:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: "Background music volume (0-1)"
     VideoFromScriptResponse:
       type: object
       properties:
@@ -3112,6 +3342,9 @@ components:
         id: { type: string }
         script: { type: string }
         style: { type: string }
+        voiceId: { type: string }
+        musicTrackId: { type: string }
+        musicVolume: { type: number, minimum: 0, maximum: 1 }
         topic: { type: string }
         provider: { type: string }
         videoUri: { type: string, nullable: true }
@@ -3136,6 +3369,9 @@ components:
         status: { type: string, enum: [pending, processing, completed, failed] }
         progress: { type: integer }
         videoUri: { type: string, nullable: true }
+        voiceId: { type: string }
+        musicTrackId: { type: string }
+        musicVolume: { type: number, minimum: 0, maximum: 1 }
 
     PostPage:
       type: object

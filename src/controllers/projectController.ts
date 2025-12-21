@@ -11,6 +11,9 @@ import {
   getVeoVideoOperation
 } from "../services/projectAiService";
 import { recordAiUsage } from "../services/aiUsageService";
+import { synthesizeVoice, elevenLabsAvailable } from "../services/voiceService";
+import { env } from "../config/env";
+import { processPreviewJob } from "../services/previewJobService";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -36,11 +39,20 @@ type ScenePayload = {
   projectId?: Types.ObjectId;
   sceneNumber: number;
   description: string;
+  narration?: string;
+  captionText?: string;
+  timingPlan?: Record<string, unknown>;
   imagePrompt?: string;
   bRollPrompt?: string;
   duration?: number;
+  mediaType?: "image" | "video";
+  mediaUri?: string;
+  mediaTrimStart?: number;
+  mediaTrimEnd?: number;
+  mediaAnimation?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  audioUri?: string;
 };
 
 const deriveTopicFromScenes = (scenes: ScenePayload[]) => {
@@ -61,9 +73,19 @@ const serializeScene = (scene: ScenePayload) => ({
   id: scene._id.toString(),
   sceneNumber: scene.sceneNumber,
   description: scene.description,
+  audioCaption: scene.description,
+  narration: scene.narration ?? scene.description,
+  captionText: scene.captionText,
+  timingPlan: scene.timingPlan,
   imagePrompt: scene.imagePrompt ?? "",
   bRollPrompt: scene.bRollPrompt ?? "",
   duration: scene.duration ?? 5,
+  mediaType: scene.mediaType,
+  mediaUri: scene.mediaUri,
+  mediaTrimStart: scene.mediaTrimStart,
+  mediaTrimEnd: scene.mediaTrimEnd,
+  mediaAnimation: scene.mediaAnimation,
+  audioUri: scene.audioUri,
   createdAt: scene.createdAt,
   updatedAt: scene.updatedAt
 });
@@ -78,6 +100,10 @@ const serializeProject = (project: ProjectDocument & { _id: Types.ObjectId }, sc
   videoUri: project.videoUri,
   videoProvider: project.videoProvider,
   videoOperationName: project.videoOperationName,
+  previewUri: project.previewUri,
+  previewStatus: project.previewStatus,
+  previewProgress: project.previewProgress,
+  previewMessage: project.previewMessage,
   status: project.status,
   style: project.style,
   createdAt: project.createdAt,
@@ -107,17 +133,36 @@ const parseLimit = (value?: string) =>
 
 const parseOrder = (order?: string) => (order === "asc" ? 1 : -1);
 
+const pickMediaAnimation = (mediaType?: "image" | "video", mediaAnimation?: string) =>
+  mediaAnimation ?? (mediaType === "image" ? `pan-zoom-${Math.floor(Math.random() * 1_000_000)}` : undefined);
+
 const normalizeInputScenes = (scenes: unknown[]) => {
   if (!Array.isArray(scenes)) return [] as ScenePayload[];
   const maxScenes = 50;
   return scenes
     .slice(0, maxScenes)
     .map((scene, idx) => {
+      const audioCaption =
+        typeof (scene as any)?.audioCaption === "string"
+          ? (scene as any).audioCaption.trim().slice(0, 2000)
+          : undefined;
+      const narration =
+        typeof (scene as any)?.narration === "string"
+          ? (scene as any).narration.trim().slice(0, 2000)
+          : audioCaption;
       const description =
         typeof (scene as any)?.description === "string"
           ? (scene as any).description.trim().slice(0, 2000)
-          : "";
+          : narration ?? audioCaption ?? "";
       if (!description) return null;
+      const captionText =
+        typeof (scene as any)?.captionText === "string"
+          ? (scene as any).captionText.trim().slice(0, 2000)
+          : undefined;
+      const timingPlan =
+        typeof (scene as any)?.timingPlan === "object" && scene?.timingPlan !== null
+          ? (scene as any).timingPlan
+          : undefined;
       const imagePrompt =
         typeof (scene as any)?.imagePrompt === "string"
           ? (scene as any).imagePrompt.trim().slice(0, 1000)
@@ -126,6 +171,27 @@ const normalizeInputScenes = (scenes: unknown[]) => {
         typeof (scene as any)?.bRollPrompt === "string"
           ? (scene as any).bRollPrompt.trim().slice(0, 1000)
           : undefined;
+      const mediaType =
+        (scene as any)?.mediaType === "image" || (scene as any)?.mediaType === "video"
+          ? ((scene as any).mediaType as "image" | "video")
+          : undefined;
+      const mediaUri =
+        typeof (scene as any)?.mediaUri === "string"
+          ? (scene as any).mediaUri.trim().slice(0, 2000)
+          : undefined;
+      const mediaTrimStart =
+        typeof (scene as any)?.mediaTrimStart === "number" && (scene as any).mediaTrimStart >= 0
+          ? (scene as any).mediaTrimStart
+          : undefined;
+      const mediaTrimEnd =
+        typeof (scene as any)?.mediaTrimEnd === "number" && (scene as any).mediaTrimEnd >= 0
+          ? (scene as any).mediaTrimEnd
+          : undefined;
+      const mediaAnimation =
+        typeof (scene as any)?.mediaAnimation === "string"
+          ? (scene as any).mediaAnimation.trim().slice(0, 200)
+          : undefined;
+      const resolvedMediaAnimation = pickMediaAnimation(mediaType, mediaAnimation);
       const rawDuration = Number((scene as any)?.duration);
       const duration = Number.isFinite(rawDuration) ? Math.min(6, Math.max(1, rawDuration)) : 5;
       const sceneNumber =
@@ -136,9 +202,17 @@ const normalizeInputScenes = (scenes: unknown[]) => {
         _id: new Types.ObjectId(),
         sceneNumber,
         description,
+        narration,
+        captionText,
+        timingPlan,
         imagePrompt,
         bRollPrompt,
-        duration
+        duration,
+        mediaType,
+        mediaUri,
+        mediaTrimStart,
+        mediaTrimEnd,
+        mediaAnimation: resolvedMediaAnimation
       } as ScenePayload;
     })
     .filter((scene): scene is ScenePayload => Boolean(scene));
@@ -339,6 +413,9 @@ export const createProject = async (req: Request, res: Response) => {
     _id: new Types.ObjectId(),
     sceneNumber: scene.sceneNumber ?? idx + 1,
     description: scene.description,
+    narration: scene.narration ?? scene.description,
+    captionText: scene.captionText,
+    timingPlan: scene.timingPlan,
     imagePrompt: scene.imagePrompt,
     bRollPrompt: scene.bRollPrompt,
     duration: scene.duration
@@ -371,9 +448,17 @@ export const createProject = async (req: Request, res: Response) => {
         projectId: project._id,
         sceneNumber: scene.sceneNumber,
         description: scene.description,
+        narration: scene.narration ?? scene.description,
+        captionText: scene.captionText,
+        timingPlan: scene.timingPlan,
         imagePrompt: scene.imagePrompt,
         bRollPrompt: scene.bRollPrompt,
-        duration: scene.duration
+        duration: scene.duration,
+        mediaType: scene.mediaType,
+        mediaUri: scene.mediaUri,
+        mediaTrimStart: scene.mediaTrimStart,
+        mediaTrimEnd: scene.mediaTrimEnd,
+        mediaAnimation: scene.mediaAnimation
       }))
     );
   }
@@ -427,12 +512,34 @@ export const deleteProject = async (req: Request, res: Response) => {
 export const addScene = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.projectId, req.user._id);
-  const { description, imagePrompt, bRollPrompt, duration, position } = req.body as {
+  const {
+    description,
+    narration,
+    captionText,
+    timingPlan,
+    imagePrompt,
+    bRollPrompt,
+    duration,
+    position,
+    mediaType,
+    mediaUri,
+    mediaTrimStart,
+    mediaTrimEnd,
+    mediaAnimation
+  } = req.body as {
     description: string;
+    narration?: string;
+    captionText?: string;
+    timingPlan?: Record<string, unknown>;
     imagePrompt?: string;
     bRollPrompt?: string;
     duration?: number;
     position?: number;
+    mediaType?: "image" | "video";
+    mediaUri?: string;
+    mediaTrimStart?: number;
+    mediaTrimEnd?: number;
+    mediaAnimation?: string;
   };
 
   const existingCount = await ProjectScene.countDocuments({ projectId: project._id });
@@ -452,13 +559,23 @@ export const addScene = async (req: Request, res: Response) => {
     );
   }
 
+  const resolvedMediaAnimation = pickMediaAnimation(mediaType, mediaAnimation);
+
   const scene = await ProjectScene.create({
     projectId: project._id,
     sceneNumber: targetPosition,
     description,
+    narration: narration ?? description,
+    captionText,
+    timingPlan,
     imagePrompt,
     bRollPrompt,
-    duration: duration ?? 5
+    duration: duration ?? 5,
+    mediaType,
+    mediaUri,
+    mediaTrimStart,
+    mediaTrimEnd,
+    mediaAnimation: resolvedMediaAnimation
   });
 
   res.status(201).json(serializeScene(scene as ProjectSceneDocument & { _id: Types.ObjectId }));
@@ -472,17 +589,50 @@ export const updateScene = async (req: Request, res: Response) => {
   const scene = await ProjectScene.findOne({ _id: req.params.sceneId, projectId: project._id });
   if (!scene) throw new HttpError(404, "Scene not found");
 
-  const { description, imagePrompt, bRollPrompt, duration } = req.body as {
+  const {
+    description,
+    narration,
+    captionText,
+    timingPlan,
+    imagePrompt,
+    bRollPrompt,
+    duration,
+    mediaType,
+    mediaUri,
+    mediaTrimStart,
+    mediaTrimEnd,
+    mediaAnimation
+  } = req.body as {
     description?: string;
+    narration?: string;
+    captionText?: string;
+    timingPlan?: Record<string, unknown>;
     imagePrompt?: string;
     bRollPrompt?: string;
     duration?: number;
+    mediaType?: "image" | "video";
+    mediaUri?: string;
+    mediaTrimStart?: number;
+    mediaTrimEnd?: number;
+    mediaAnimation?: string;
   };
 
   if (description !== undefined) scene.description = description;
+  if (narration !== undefined) scene.narration = narration;
+  if (captionText !== undefined) scene.captionText = captionText;
+  if (timingPlan !== undefined) scene.timingPlan = timingPlan;
   if (imagePrompt !== undefined) scene.imagePrompt = imagePrompt;
   if (bRollPrompt !== undefined) scene.bRollPrompt = bRollPrompt;
   if (duration !== undefined) scene.duration = duration;
+  if (mediaType !== undefined) scene.mediaType = mediaType;
+  if (mediaUri !== undefined) scene.mediaUri = mediaUri;
+  if (mediaTrimStart !== undefined) scene.mediaTrimStart = mediaTrimStart;
+  if (mediaTrimEnd !== undefined) scene.mediaTrimEnd = mediaTrimEnd;
+  const resolvedMediaAnimation =
+    mediaAnimation !== undefined || (!scene.mediaAnimation && (mediaType ?? scene.mediaType) === "image")
+      ? pickMediaAnimation((mediaType ?? scene.mediaType) as "image" | "video" | undefined, mediaAnimation)
+      : undefined;
+  if (resolvedMediaAnimation !== undefined) scene.mediaAnimation = resolvedMediaAnimation;
 
   await scene.save();
 
@@ -529,13 +679,14 @@ export const reorderScenes = async (req: Request, res: Response) => {
 
 export const generateScenes = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { topic: rawTopic, sceneCount, script, style, provider, refine } = req.body as {
+  const { topic: rawTopic, sceneCount, script, style, provider, refine, createProject } = req.body as {
     topic?: string;
     sceneCount?: number;
     script?: string;
     style?: ProjectStyle;
     provider?: "openai" | "gemini";
     refine?: boolean;
+    createProject?: boolean;
   };
 
   const scriptText = typeof script === "string" ? script : undefined;
@@ -563,6 +714,37 @@ export const generateScenes = async (req: Request, res: Response) => {
   const totalDuration = scenes.reduce((acc, scene) => acc + (scene.duration ?? 0), 0);
   const averageSceneDuration = scenes.length ? totalDuration / scenes.length : 0;
 
+  let projectId: string | undefined;
+  if (createProject) {
+    const project = await Project.create({
+      userId: req.user._id,
+      title: topic,
+      topic,
+      script: scriptText,
+      refinedScript: generationResult.refinedScript ?? generationResult.scriptUsed ?? scriptText,
+      style,
+      status: "in-progress"
+    });
+
+    const scenesToInsert = scenes.map((scene, idx) => ({
+      projectId: project._id,
+      sceneNumber: scene.sceneNumber ?? idx + 1,
+      description: scene.description,
+      narration: scene.narration ?? scene.description,
+      captionText: scene.captionText,
+      timingPlan: scene.timingPlan,
+      imagePrompt: scene.imagePrompt,
+      bRollPrompt: scene.bRollPrompt,
+      duration: scene.duration
+    }));
+
+    if (scenesToInsert.length) {
+      await ProjectScene.insertMany(scenesToInsert);
+    }
+
+    projectId = project._id.toString();
+  }
+
   await recordAiUsage({
     userId: req.user._id,
     action: "project:generate-scenes",
@@ -584,7 +766,8 @@ export const generateScenes = async (req: Request, res: Response) => {
     averageSceneDuration,
     bRollCount: scenes.length,
     script: generationResult.scriptUsed ?? scriptText,
-    refinedScript: generationResult.refinedScript
+    refinedScript: generationResult.refinedScript,
+    ...(projectId ? { projectId } : {})
   });
 };
 
@@ -623,6 +806,9 @@ export const regenerateScene = async (req: Request, res: Response) => {
   });
 
   scene.description = regenerated.scene.description;
+  scene.narration = regenerated.scene.narration ?? regenerated.scene.description;
+  if (regenerated.scene.captionText !== undefined) scene.captionText = regenerated.scene.captionText;
+  if (regenerated.scene.timingPlan !== undefined) scene.timingPlan = regenerated.scene.timingPlan;
   scene.imagePrompt = regenerated.scene.imagePrompt;
   scene.bRollPrompt = regenerated.scene.bRollPrompt;
   scene.duration = regenerated.scene.duration;
@@ -636,6 +822,29 @@ export const regenerateScene = async (req: Request, res: Response) => {
   });
 
   res.json(serializeScene(scene as ProjectSceneDocument & { _id: Types.ObjectId }));
+};
+
+export const generateSceneAudio = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const project = await ensureProjectOwned(req.params.projectId, req.user._id);
+  ensureObjectId(req.params.sceneId, "Invalid scene id");
+
+  const scene = await ProjectScene.findOne({ _id: req.params.sceneId, projectId: project._id });
+  if (!scene) throw new HttpError(404, "Scene not found");
+  if (!elevenLabsAvailable()) throw new HttpError(500, "ElevenLabs API key is not configured");
+
+  const { voiceId, modelId } = req.body as { voiceId?: string; modelId?: string };
+  const text = scene.narration || scene.description;
+  if (!text) throw new HttpError(400, "Scene narration is empty");
+
+  const audio = await synthesizeVoice({ text, voiceId, modelId });
+  scene.audioUri = audio.audioDataUri;
+  await scene.save();
+
+  res.json({
+    audioUri: scene.audioUri,
+    scene: serializeScene(scene as ProjectSceneDocument & { _id: Types.ObjectId })
+  });
 };
 
 export const generateProjectVideo = async (req: Request, res: Response) => {
@@ -674,9 +883,12 @@ export const generateProjectVideo = async (req: Request, res: Response) => {
 
   const plannedScenes: AiScene[] = scenes.map((scene, idx) => ({
     sceneNumber: scene.sceneNumber ?? idx + 1,
-    description: scene.description,
+    description: scene.narration ?? scene.description,
+    narration: scene.narration ?? scene.description,
+    captionText: scene.captionText,
     imagePrompt: scene.imagePrompt ?? "",
     bRollPrompt: scene.bRollPrompt ?? "",
+    timingPlan: (scene as any)?.timingPlan as any,
     duration: scene.duration ?? 2
   }));
 
@@ -734,5 +946,48 @@ export const getProjectVideoStatus = async (req: Request, res: Response) => {
     videoUri: project.videoUri ?? op.videos?.[0]?.uri ?? null,
     provider: "veo",
     operationName: op.operationName
+  });
+};
+
+export const getProjectPreviewStatus = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const project = await ensureProjectOwned(req.params.projectId, req.user._id);
+
+  res.json({
+    status: project.previewStatus ?? "pending",
+    previewUri: project.previewUri ?? null,
+    projectId: project._id.toString(),
+    progress: project.previewProgress ?? 0,
+    message: project.previewMessage ?? null
+  });
+};
+
+export const generateProjectPreview = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const project = await ensureProjectOwned(req.params.projectId, req.user._id);
+  const provider = (req.body?.provider as "openai" | "gemini" | "veo" | undefined) ?? "veo";
+  const quality = (req.body?.quality as "sd" | "hd" | undefined) ?? "sd";
+
+  const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
+  if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a preview");
+
+  project.previewStatus = "processing";
+  project.previewProgress = 0;
+  project.previewMessage = undefined;
+  await project.save();
+
+  // Fire and forget background job
+  processPreviewJob(project._id.toString()).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("Preview job failed", err);
+  });
+
+  res.status(202).json({
+    status: "processing",
+    provider,
+    quality,
+    projectId: project._id.toString(),
+    scenesCount: scenes.length,
+    previewUri: project.previewUri ?? null
   });
 };

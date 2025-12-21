@@ -13,8 +13,9 @@ export const recordScriptGeneration = async (params: {
   duration?: string;
   language?: string;
   usage?: AiUsageMetrics;
+  modelId?: string;
 }) => {
-  const { userId, prompt, script, topic, topicCategory, format, resolvedFormat, duration, language, usage } =
+  const { userId, prompt, script, topic, topicCategory, format, resolvedFormat, duration, language, usage, modelId } =
     params;
   await AiScriptGeneration.create({
     userId,
@@ -26,7 +27,7 @@ export const recordScriptGeneration = async (params: {
     resolvedFormat,
     duration,
     language,
-    aiModel: usage?.model,
+    aiModel: modelId ?? usage?.model,
     promptTokens: usage?.promptTokens,
     completionTokens: usage?.completionTokens,
     totalTokens: usage?.totalTokens

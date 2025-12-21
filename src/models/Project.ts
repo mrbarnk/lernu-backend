@@ -27,6 +27,10 @@ export interface ProjectAttrs {
   videoUri?: string;
   videoProvider?: string;
   videoOperationName?: string;
+  previewUri?: string;
+  previewStatus?: "pending" | "processing" | "completed" | "failed";
+  previewProgress?: number;
+  previewMessage?: string;
 }
 
 export interface ProjectDocument extends Document, ProjectAttrs {
@@ -45,6 +49,14 @@ const projectSchema = new Schema<ProjectDocument>(
     videoUri: { type: String, trim: true },
     videoProvider: { type: String, trim: true },
     videoOperationName: { type: String, trim: true },
+    previewUri: { type: String, trim: true },
+    previewStatus: {
+      type: String,
+      enum: ["pending", "processing", "completed", "failed"],
+      default: "pending"
+    },
+    previewProgress: { type: Number, default: 0 },
+    previewMessage: { type: String, trim: true, maxlength: 1000 },
     status: {
       type: String,
       enum: ["draft", "in-progress", "completed"],
@@ -58,13 +70,15 @@ const projectSchema = new Schema<ProjectDocument>(
         "cinematic",
         "brick",
         "grudge",
+        "grunge",
         "comic-book",
         "muppet",
         "ghibli",
         "playground",
         "voxel",
         "anime",
-        "pixer-3d"
+        "pixar3d",
+        "grunge"
       ],
       default: "cinematic"
     }
