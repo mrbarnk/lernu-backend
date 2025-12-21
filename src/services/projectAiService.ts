@@ -113,13 +113,15 @@ const styleGuidance: Record<ProjectStyle, string> = {
   cinematic: "cinematic lighting, shallow depth of field, dramatic framing",
   brick: "built from LEGO/brick-style pieces, colorful studs and blocky forms",
   grudge: "gritty, moody, high contrast with subtle film grain",
+  grunge: "gritty, moody, high contrast with subtle film grain",
   "comic-book": "inked outlines, halftone shading, bold colors and dynamic angles",
   muppet: "felt textures, puppet-style characters with expressive eyes",
   ghibli: "Studio Ghibli-inspired, painterly backgrounds and gentle lighting",
   playground: "whimsical, toy-like, soft gradients and playful geometry",
   voxel: "3D voxel art, blocky depth, isometric-friendly lighting",
   anime: "anime-style characters, clean lines, vivid color, energetic compositions",
-  "pixer-3d": "Pixar-like 3D, soft global illumination, expressive characters"
+  "pixer-3d": "Pixar-like 3D, soft global illumination, expressive characters",
+  pixar3d: "Pixar-like 3D, soft global illumination, expressive characters",
 };
 
 const SYSTEM_PROMPT = `You are an expert video content planner for short, faceless videos.
