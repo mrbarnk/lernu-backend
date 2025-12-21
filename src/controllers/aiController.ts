@@ -5,22 +5,22 @@ import {
   generateVideoFromScript,
   getCategoryInstruction
 } from "../services/projectAiService";
+import { fetchVoicePreviewUrl } from "../services/voiceService";
 import { VideoGeneration } from "../models/VideoGeneration";
 import { processVideoGenerationJob, getVideoGenerationStatus } from "../services/videoJobService";
 import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagination";
 import { consumeUserCredits, refundUserCredits } from "../services/creditService";
 import { recordScriptGeneration } from "../services/aiScriptLoggingService";
 
-// Preview clips now point to public ElevenLabs sample audio for the mapped voices
 const VOICE_OPTIONS = [
-  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_ErXwobaYiN019PkySvjV_0.mp3" },
-  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_21m00Tcm4TlvDq8ikWAM_0.mp3" },
-  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_EXAVITQu4vr4xnSDxMaL_0.mp3" },
-  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_TxGEqnHWrfWFTfGW9XjX_0.mp3" },
-  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_MF3mGyEYCl7XYWbV9V6O_0.mp3" },
-  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_VR6AewLTigWG4xSOukaG_0.mp3" },
-  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_AZnzlk1XvdvUeBnXmlld_0.mp3" },
-  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_pNInz6obpgDQGcFmaJgB_0.mp3" }
+  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "/api/ai/voices/narrator-deep/preview" },
+  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "/api/ai/voices/narrator-warm/preview" },
+  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "/api/ai/voices/storyteller-f/preview" },
+  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "/api/ai/voices/storyteller-m/preview" },
+  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "/api/ai/voices/dramatic-f/preview" },
+  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "/api/ai/voices/mysterious/preview" },
+  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "/api/ai/voices/upbeat-f/preview" },
+  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "/api/ai/voices/classic-m/preview" }
 ] as const;
 
 const MUSIC_LIBRARY = [
@@ -226,6 +226,14 @@ export const generateScript = async (req: Request, res: Response) => {
 
 export const listVoiceOptions = async (_req: Request, res: Response) => {
   res.json({ voices: VOICE_OPTIONS });
+};
+
+export const getVoicePreview = async (req: Request, res: Response) => {
+  if (!req.user) throw new HttpError(401, "Authentication required");
+  const { id } = req.params;
+  const previewUrl = await fetchVoicePreviewUrl(id);
+  if (!previewUrl) throw new HttpError(404, "Preview not available");
+  res.json({ previewUrl });
 };
 
 export const listMusicLibrary = async (_req: Request, res: Response) => {

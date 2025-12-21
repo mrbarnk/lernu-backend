@@ -1,7 +1,8 @@
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error";
 
-const ELEVEN_BASE_URL = "https://api.elevenlabs.io/v1/text-to-speech";
+const ELEVEN_TTS_BASE_URL = "https://api.elevenlabs.io/v1/text-to-speech";
+const ELEVEN_VOICES_BASE_URL = "https://api.elevenlabs.io/v1/voices";
 
 // Map UI voice ids to actual ElevenLabs voice ids (public sample voices)
 const VOICE_ID_MAP: Record<string, string> = {
@@ -33,7 +34,7 @@ export const synthesizeVoice = async (params: {
   const voice = pickVoiceId(params.voiceId);
   const modelId = params.modelId ?? env.elevenLabsModelId ?? "eleven_multilingual_v2";
 
-  const resp = await fetch(`${ELEVEN_BASE_URL}/${voice}/stream`, {
+  const resp = await fetch(`${ELEVEN_TTS_BASE_URL}/${voice}/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -60,4 +61,22 @@ export const synthesizeVoice = async (params: {
   const base64 = buffer.toString("base64");
   const mime = resp.headers.get("content-type") || "audio/mpeg";
   return { audioDataUri: `data:${mime};base64,${base64}` };
+};
+
+export const fetchVoicePreviewUrl = async (uiVoiceId: string): Promise<string | null> => {
+  const elevenVoiceId = VOICE_ID_MAP[uiVoiceId];
+  if (!elevenVoiceId) return null;
+  const apiKey = env.elevenLabsApiKey;
+  if (!apiKey) return null;
+
+  const resp = await fetch(`${ELEVEN_VOICES_BASE_URL}/${elevenVoiceId}`, {
+    headers: { "xi-api-key": apiKey }
+  });
+
+  if (!resp.ok) {
+    return null;
+  }
+
+  const data = (await resp.json()) as { preview_url?: string };
+  return data.preview_url ?? null;
 };
