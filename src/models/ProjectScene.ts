@@ -7,6 +7,15 @@ export interface ProjectSceneAttrs {
   imagePrompt?: string;
   bRollPrompt?: string;
   duration?: number;
+  narration?: string;
+  captionText?: string;
+  timingPlan?: Record<string, unknown>;
+  mediaType?: "image" | "video";
+  mediaUri?: string;
+  mediaTrimStart?: number;
+  mediaTrimEnd?: number;
+  mediaAnimation?: string;
+  audioUri?: string;
 }
 
 export interface ProjectSceneDocument extends Document, ProjectSceneAttrs {
@@ -21,7 +30,16 @@ const projectSceneSchema = new Schema<ProjectSceneDocument>(
     description: { type: String, required: true, trim: true, maxlength: 2000 },
     imagePrompt: { type: String, trim: true, maxlength: 1000 },
     bRollPrompt: { type: String, trim: true, maxlength: 1000 },
-    duration: { type: Number, default: 5, min: 1, max: 6 }
+    duration: { type: Number, default: 5, min: 1, max: 6 },
+    narration: { type: String, trim: true, maxlength: 2000 },
+    captionText: { type: String, trim: true, maxlength: 2000 },
+    timingPlan: { type: Schema.Types.Mixed },
+    mediaType: { type: String, enum: ["image", "video"], trim: true },
+    mediaUri: { type: String, trim: true, maxlength: 2000 },
+    mediaTrimStart: { type: Number, min: 0 },
+    mediaTrimEnd: { type: Number, min: 0 },
+    mediaAnimation: { type: String, trim: true, maxlength: 200 },
+    audioUri: { type: String, trim: true }
   },
   {
     timestamps: { createdAt: true, updatedAt: true },

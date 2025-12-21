@@ -14,6 +14,9 @@ export interface VideoGenerationAttrs {
   userId: Types.ObjectId;
   script: string;
   style?: string;
+  voiceId?: string;
+  musicTrackId?: string;
+  musicVolume?: number;
   topic: string;
   provider: string;
   sequences: VideoSequence[];
@@ -43,6 +46,9 @@ const videoGenerationSchema = new Schema<VideoGenerationDocument>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     script: { type: String, required: true, trim: true, maxlength: 5000 },
     style: { type: String, trim: true },
+    voiceId: { type: String, trim: true, maxlength: 100 },
+    musicTrackId: { type: String, trim: true, maxlength: 100 },
+    musicVolume: { type: Number, min: 0, max: 1 },
     topic: { type: String, required: true, trim: true, maxlength: 500 },
     provider: { type: String, required: true, trim: true },
     sequences: { type: [sequenceSchema], required: true },

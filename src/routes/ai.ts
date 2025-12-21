@@ -14,6 +14,7 @@ import {
   listConversations,
   updateConversation
 } from "../controllers/aiConversationController";
+import { listMusicLibrary, listVoiceOptions } from "../controllers/aiController";
 import { optionalAuth, requireAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import {
@@ -32,6 +33,8 @@ import {
 const router = Router();
 
 router.post("/script", requireAuth, validate(generateScriptSchema), generateScript);
+router.get("/voices", requireAuth, listVoiceOptions);
+router.get("/music", requireAuth, listMusicLibrary);
 router.post(
   "/video-from-script",
   requireAuth,

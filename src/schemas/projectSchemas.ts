@@ -22,9 +22,17 @@ const providerEnum = z.enum(["openai", "gemini", "veo"]);
 const sceneInputSchema = z.object({
   sceneNumber: z.number().int().min(1).optional(),
   description: z.string().min(1).max(2000),
+  narration: z.string().min(1).max(2000).optional(),
+  captionText: z.string().max(2000).optional(),
+  timingPlan: z.record(z.any()).optional(),
   imagePrompt: z.string().max(1000).optional(),
   bRollPrompt: z.string().max(1000).optional(),
-  duration: z.number().int().min(1).max(6).optional()
+  duration: z.number().int().min(1).max(6).optional(),
+  mediaType: z.enum(["image", "video"]).optional(),
+  mediaUri: z.string().max(2000).optional(),
+  mediaTrimStart: z.number().min(0).optional(),
+  mediaTrimEnd: z.number().min(0).optional(),
+  mediaAnimation: z.string().max(200).optional()
 });
 
 export const listProjectsSchema = z.object({
@@ -82,10 +90,18 @@ export const addSceneSchema = z.object({
   }),
   body: z.object({
     description: z.string().min(1).max(2000),
+    narration: z.string().min(1).max(2000).optional(),
+    captionText: z.string().max(2000).optional(),
+    timingPlan: z.record(z.any()).optional(),
     imagePrompt: z.string().max(1000).optional(),
     bRollPrompt: z.string().max(1000).optional(),
-    duration: z.number().int().min(1).max(5).optional(),
-    position: z.number().int().min(1).optional()
+    duration: z.number().int().min(1).max(6).optional(),
+    position: z.number().int().min(1).optional(),
+    mediaType: z.enum(["image", "video"]).optional(),
+    mediaUri: z.string().max(2000).optional(),
+    mediaTrimStart: z.number().min(0).optional(),
+    mediaTrimEnd: z.number().min(0).optional(),
+    mediaAnimation: z.string().max(200).optional()
   })
 });
 
@@ -96,9 +112,17 @@ export const updateSceneSchema = z.object({
   }),
   body: z.object({
     description: z.string().min(1).max(2000).optional(),
+    narration: z.string().min(1).max(2000).optional(),
+    captionText: z.string().max(2000).optional(),
+    timingPlan: z.record(z.any()).optional(),
     imagePrompt: z.string().max(1000).optional(),
     bRollPrompt: z.string().max(1000).optional(),
-    duration: z.number().int().min(1).max(5).optional()
+    duration: z.number().int().min(1).max(6).optional(),
+    mediaType: z.enum(["image", "video"]).optional(),
+    mediaUri: z.string().max(2000).optional(),
+    mediaTrimStart: z.number().min(0).optional(),
+    mediaTrimEnd: z.number().min(0).optional(),
+    mediaAnimation: z.string().max(200).optional()
   })
 });
 
@@ -119,7 +143,8 @@ export const generateScenesSchema = z.object({
       script: z.string().min(1).max(5000),
       style: styleEnum.optional(),
       provider: providerEnum.optional(),
-      refine: z.boolean().optional()
+      refine: z.boolean().optional(),
+      createProject: z.boolean().optional()
     })
 });
 
@@ -136,12 +161,35 @@ export const regenerateSceneSchema = z.object({
   })
 });
 
+export const generateSceneAudioSchema = z.object({
+  params: z.object({
+    projectId: z.string(),
+    sceneId: z.string()
+  }),
+  body: z.object({
+    voiceId: z.string().max(100).optional(),
+    modelId: z.string().max(200).optional()
+  })
+});
+
 export const generateVideoSchema = z.object({
   params: z.object({
     projectId: z.string()
   }),
   body: z
     .object({
+      provider: providerEnum.optional()
+    })
+    .optional()
+});
+
+export const generatePreviewSchema = z.object({
+  params: z.object({
+    projectId: z.string()
+  }),
+  body: z
+    .object({
+      quality: z.enum(["sd", "hd"]).optional(),
       provider: providerEnum.optional()
     })
     .optional()

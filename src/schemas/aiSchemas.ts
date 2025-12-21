@@ -36,9 +36,17 @@ const conversationMetaSchema = z.object({
 const sceneSchema = z.object({
   sceneNumber: z.number().int().min(1),
   audioCaption: z.string().trim().min(1).max(1000),
+  narration: z.string().trim().min(1).max(2000).optional(),
+  captionText: z.string().trim().max(2000).optional(),
+  timingPlan: z.record(z.any()).optional(),
   videoPrompt: z.string().trim().max(2000).optional(),
   imagePrompt: z.string().trim().max(2000).optional(),
-  duration: z.number().int().positive().max(600).optional()
+  duration: z.number().int().positive().max(600).optional(),
+  mediaType: z.enum(["image", "video"]).optional(),
+  mediaUri: z.string().trim().max(2000).optional(),
+  mediaTrimStart: z.number().min(0).optional(),
+  mediaTrimEnd: z.number().min(0).optional(),
+  mediaAnimation: z.string().trim().max(200).optional()
 });
 
 export const generateScriptSchema = z.object({
@@ -48,7 +56,8 @@ export const generateScriptSchema = z.object({
       language: z.string().trim().min(2).max(10).default("en"),
       duration: z.string().trim().min(1).max(20).default("60s"),
       topicCategory: z.string().trim().min(1).max(100).optional(),
-      format: z.string().trim().min(1).max(100).optional()
+      format: z.string().trim().min(1).max(100).optional(),
+      model: z.string().trim().max(100).optional()
     })
     .superRefine((data, ctx) => {
       const hasPrompt = Boolean(data.prompt);
@@ -65,7 +74,10 @@ export const generateScriptSchema = z.object({
 export const videoFromScriptSchema = z.object({
   body: z.object({
     script: z.string().min(1).max(5000),
-    style: styleEnum.optional()
+    style: styleEnum.optional(),
+    voiceId: z.string().trim().max(100).optional(),
+    musicTrackId: z.string().trim().max(100).optional(),
+    musicVolume: z.number().min(0).max(1).optional()
   })
 });
 

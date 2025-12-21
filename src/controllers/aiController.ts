@@ -11,6 +11,34 @@ import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagi
 import { consumeUserCredits, refundUserCredits } from "../services/creditService";
 import { recordScriptGeneration } from "../services/aiScriptLoggingService";
 
+const VOICE_OPTIONS = [
+  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
+  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
+  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" }
+] as const;
+
+const MUSIC_LIBRARY = [
+  { id: "none", name: "No Music", tags: ["None"], duration: "-" },
+  { id: "christmas-bells", name: "🎄 Christmas Bells", tags: ["Holiday", "Festive", "Joyful"], duration: "2:30" },
+  { id: "winter-wonder", name: "❄️ Winter Wonderland", tags: ["Holiday", "Peaceful", "Magical"], duration: "3:15" },
+  { id: "choristes", name: "Choristes", tags: ["Choir", "Classical", "Emotional"], duration: "2:45" },
+  { id: "fur-elise", name: "Für Elise", tags: ["Classical", "Piano"], duration: "3:00" },
+  { id: "villain", name: "Making a Villain", tags: ["Dark", "Dramatic"], duration: "2:30" },
+  { id: "strings", name: "String Arpeggios", tags: ["Classical", "Elegant"], duration: "2:15" },
+  { id: "movie-trailer", name: "Movie Trailer", tags: ["Cinematic", "Epic"], duration: "2:00" },
+  { id: "ghost", name: "Ghost", tags: ["Ambient", "Mysterious"], duration: "3:30" },
+  { id: "dark-synths", name: "Dark Synths", tags: ["Synthwave", "Horror"], duration: "2:45" },
+  { id: "spooky", name: "Spooky Quiet", tags: ["Scary", "Horror"], duration: "3:00" },
+  { id: "phonk", name: "Phonk", tags: ["Phonk", "Hardstyle"], duration: "2:30" },
+  { id: "comedy", name: "Comedy", tags: ["Funny", "Light"], duration: "2:00" },
+  { id: "eternal-strings", name: "Eternal Strings", tags: ["Classical", "Emotional"], duration: "3:45" }
+] as const;
+
 const RANDOM_TOPIC_LIBRARY: Record<string, string[]> = {
   "scary-stories": [
     "The watcher in the woods that no one sees twice",
@@ -97,12 +125,20 @@ const buildRandomScriptPrompt = (params: {
 
 export const generateScript = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { prompt, language = "en", duration = "60s", topicCategory, format } = req.body as {
+  const {
+    prompt,
+    language = "en",
+    duration = "60s",
+    topicCategory,
+    format,
+    model
+  } = req.body as {
     prompt?: string;
     language?: string;
     duration?: string;
     topicCategory?: string;
     format?: string;
+    model?: string;
   };
 
   const hasPrompt = Boolean(prompt);
@@ -133,6 +169,7 @@ export const generateScript = async (req: Request, res: Response) => {
   }
 
   if (!aiPrompt) throw new HttpError(400, "Prompt is required");
+  const modelId = hasRandomInputs ? undefined : model?.trim();
 
   let creditsRemaining: number | undefined;
   let creditsConsumed = false;
@@ -145,7 +182,12 @@ export const generateScript = async (req: Request, res: Response) => {
       prompt: aiPrompt,
       language: language || "en",
       duration: duration || "60s",
-      categoryInstructions: getCategoryInstruction(topicCategory)
+      categoryInstructions:
+        getCategoryInstruction(topicCategory) ||
+        (modelId === "bible-knowledge" && !topicCategory
+          ? getCategoryInstruction("bible-stories")
+          : undefined),
+      modelId
     });
 
     const script = result.script?.trim();
@@ -161,7 +203,8 @@ export const generateScript = async (req: Request, res: Response) => {
       resolvedFormat,
       duration,
       language,
-      usage: result.usage
+      usage: result.usage,
+      modelId
     });
 
     res.json({
@@ -169,6 +212,7 @@ export const generateScript = async (req: Request, res: Response) => {
       ...(resolvedTopic ? { topic: resolvedTopic } : {}),
       ...(resolvedFormat ? { format: resolvedFormat } : {}),
       usage: result.usage,
+      model: modelId,
       creditsRemaining
     });
   } catch (err) {
@@ -179,15 +223,32 @@ export const generateScript = async (req: Request, res: Response) => {
   }
 };
 
+export const listVoiceOptions = async (_req: Request, res: Response) => {
+  res.json({ voices: VOICE_OPTIONS });
+};
+
+export const listMusicLibrary = async (_req: Request, res: Response) => {
+  res.json({ tracks: MUSIC_LIBRARY });
+};
+
 export const generateVideoFromScriptHandler = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const { script, style } = req.body as { script: string; style?: any };
+  const { script, style, voiceId, musicTrackId, musicVolume } = req.body as {
+    script: string;
+    style?: any;
+    voiceId?: string;
+    musicTrackId?: string;
+    musicVolume?: number;
+  };
 
   const result = await generateVideoFromScript({ script, style });
   const video = await VideoGeneration.create({
     userId: req.user._id,
     script,
     style,
+    voiceId,
+    musicTrackId,
+    musicVolume,
     topic: result.payload.topic,
     provider: result.payload.provider,
     sequences: result.payload.sequences,
@@ -229,6 +290,9 @@ export const listVideoGenerations = async (req: Request, res: Response) => {
       id: v._id.toString(),
       script: v.script,
       style: v.style,
+      voiceId: v.voiceId,
+      musicTrackId: v.musicTrackId,
+      musicVolume: v.musicVolume,
       topic: v.topic,
       provider: v.provider,
       sequences: v.sequences,
