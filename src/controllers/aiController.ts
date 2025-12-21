@@ -11,15 +11,16 @@ import { parsePagination, buildCursorFilter, getNextCursor } from "../utils/pagi
 import { consumeUserCredits, refundUserCredits } from "../services/creditService";
 import { recordScriptGeneration } from "../services/aiScriptLoggingService";
 
+// Preview clips now point to public ElevenLabs sample audio for the mapped voices
 const VOICE_OPTIONS = [
-  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
-  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
-  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
-  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
-  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
-  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
-  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
-  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" }
+  { id: "narrator-deep", name: "Deep Narrator", gender: "male", style: "Cinematic & dramatic", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_ErXwobaYiN019PkySvjV_0.mp3" },
+  { id: "narrator-warm", name: "Warm Narrator", gender: "male", style: "Friendly & engaging", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_21m00Tcm4TlvDq8ikWAM_0.mp3" },
+  { id: "storyteller-f", name: "Sofia", gender: "female", style: "Soft & captivating", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_EXAVITQu4vr4xnSDxMaL_0.mp3" },
+  { id: "storyteller-m", name: "Marcus", gender: "male", style: "Authoritative & clear", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_TxGEqnHWrfWFTfGW9XjX_0.mp3" },
+  { id: "dramatic-f", name: "Elena", gender: "female", style: "Expressive & emotional", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_MF3mGyEYCl7XYWbV9V6O_0.mp3" },
+  { id: "mysterious", name: "Shadow", gender: "male", style: "Dark & mysterious", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_VR6AewLTigWG4xSOukaG_0.mp3" },
+  { id: "upbeat-f", name: "Lily", gender: "female", style: "Bright & energetic", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_AZnzlk1XvdvUeBnXmlld_0.mp3" },
+  { id: "classic-m", name: "James", gender: "male", style: "Classic documentary", previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/voice_pNInz6obpgDQGcFmaJgB_0.mp3" }
 ] as const;
 
 const MUSIC_LIBRARY = [
