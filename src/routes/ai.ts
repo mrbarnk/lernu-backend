@@ -14,7 +14,12 @@ import {
   listConversations,
   updateConversation
 } from "../controllers/aiConversationController";
-import { getVoicePreview, listMusicLibrary, listVoiceOptions } from "../controllers/aiController";
+import {
+  getVoicePreview,
+  listFontLibrary,
+  listMusicLibrary,
+  listVoiceOptions
+} from "../controllers/aiController";
 import { optionalAuth, requireAuth } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import {
@@ -36,6 +41,7 @@ router.post("/script", requireAuth, validate(generateScriptSchema), generateScri
 router.get("/voices", requireAuth, listVoiceOptions);
 router.get("/voices/:id/preview", requireAuth, getVoicePreview);
 router.get("/music", requireAuth, listMusicLibrary);
+router.get("/fonts", requireAuth, listFontLibrary);
 router.post(
   "/video-from-script",
   requireAuth,

@@ -40,6 +40,17 @@ const MUSIC_LIBRARY = [
   { id: "eternal-strings", name: "Eternal Strings", tags: ["Classical", "Emotional"], duration: "3:45" }
 ] as const;
 
+const FONT_LIBRARY = [
+  { id: "montserrat", name: "Montserrat", family: "'Montserrat', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "inter", name: "Inter", family: "'Inter', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "dm-sans", name: "DM Sans", family: "'DM Sans', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "lato", name: "Lato", family: "'Lato', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "poppins", name: "Poppins", family: "'Poppins', 'Helvetica Neue', Arial, sans-serif" },
+  { id: "playfair", name: "Playfair Display", family: "'Playfair Display', Georgia, serif" },
+  { id: "merriweather", name: "Merriweather", family: "'Merriweather', Georgia, serif" },
+  { id: "cinzel", name: "Cinzel", family: "'Cinzel', 'Times New Roman', serif" }
+] as const;
+
 const RANDOM_TOPIC_LIBRARY: Record<string, string[]> = {
   "scary-stories": [
     "The watcher in the woods that no one sees twice",
@@ -243,6 +254,10 @@ export const getVoicePreview = async (req: Request, res: Response) => {
 
 export const listMusicLibrary = async (_req: Request, res: Response) => {
   res.json({ tracks: MUSIC_LIBRARY });
+};
+
+export const listFontLibrary = async (_req: Request, res: Response) => {
+  res.json({ fonts: FONT_LIBRARY });
 };
 
 export const generateVideoFromScriptHandler = async (req: Request, res: Response) => {
