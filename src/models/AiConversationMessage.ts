@@ -3,6 +3,8 @@ import { Document, Model, Schema, Types, model } from "mongoose";
 export type AiMessageRole = "assistant" | "user";
 
 export interface SceneSequence {
+  id: string;
+  projectId: string;
   sceneNumber: number;
   audioCaption: string;
   videoPrompt?: string;
@@ -25,7 +27,9 @@ export interface AiConversationMessageDocument extends Document, AiConversationM
 
 const sceneSchema = new Schema<SceneSequence>(
   {
+    id: { type: String, required: true },
     sceneNumber: { type: Number, required: true },
+    projectId: { type: String, required: true },
     audioCaption: { type: String, required: true, trim: true, maxlength: 1000 },
     videoPrompt: { type: String, trim: true, maxlength: 2000 },
     imagePrompt: { type: String, trim: true, maxlength: 2000 },

@@ -34,6 +34,8 @@ const conversationMetaSchema = z.object({
 });
 
 const sceneSchema = z.object({
+  id: z.string().trim().min(1).max(200),
+  projectId: z.string().trim().min(1).max(200),
   sceneNumber: z.number().int().min(1),
   audioCaption: z.string().trim().min(1).max(1000),
   narration: z.string().trim().min(1).max(2000).optional(),

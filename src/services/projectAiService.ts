@@ -252,7 +252,7 @@ const buildScenesPrompt = (
   const parts = [
     `${countLine} Topic reference: "${topic}".`,
     "Use the provided script as the primary source and preserve its order and intent.",
-    `Visual style: ${styleGuidance[style]}.`,
+    `Visual style: ${styleGuidance[style]}. Apply this style to both imagePrompt and bRollPrompt; repeat the style keywords inside each prompt so both stay consistent.`,
     "For each scene include: audio (what the voiceover should say, 1-2 sentences), imagePrompt (styled still prompt), bRollPrompt (supporting footage), and duration in seconds.",
     "Each scene/b-roll should be between 1-6 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
     "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
@@ -271,7 +271,7 @@ const buildVeoScenesPrompt = (topic: string, style: ProjectStyle, script?: strin
     "Create short scenes for a faceless video that will be rendered into ~8 seconds total.",
     `Topic reference: "${topic}". Let the model choose the right number of scenes to fit ~8s (usually 3-6 scenes).`,
     "Use the provided script as the primary source and preserve its order and intent.",
-    `Visual style: ${styleGuidance[style]}.`,
+    `Visual style: ${styleGuidance[style]}. Apply this style to both imagePrompt and bRollPrompt; repeat the style keywords inside each prompt so both stay consistent.`,
     "For each scene include: audio (voiceover line), imagePrompt (era/place-accurate styled still), bRollPrompt (supporting footage for that exact line), and duration in seconds.",
     "Each scene/b-roll should be between 1-4 seconds. Keep narration concise, action-oriented, and avoid direct address to camera.",
     "Keep visual prompts aligned with the full storyline (era, location, characters, tone) so shots feel consistent from start to finish.",
@@ -293,7 +293,7 @@ const buildVeoVideoPrompt = (params: {
   const { topic, scenes, style } = params;
   const lines = [
     `Generate a faceless short video (~8 seconds) for the topic "${topic}".`,
-    `Visual style: ${styleGuidance[style]}.`,
+    `Visual style: ${styleGuidance[style]}. Apply this style to every shot; restate the style keywords inside each imagePrompt and bRollPrompt so the video stays visually cohesive.`,
     "Use the provided ordered scenes as the voiceover lines; keep visuals tightly aligned to each line's era/location/tone.",
     "Return shots that stitch together seamlessly and respect the selected style; maintain historical/setting consistency across all shots.",
     "Voiceover + visual plan:",

@@ -142,6 +142,15 @@ export const addConversationMessage = async (req: Request, res: Response) => {
     scenes?: any[];
   };
 
+  console.log({
+    conversationId: conversation._id,
+    userId: req.user._id,
+    role,
+    content,
+    options,
+    scenes
+  })
+
   const message = await AiConversationMessage.create({
     conversationId: conversation._id,
     userId: req.user._id,

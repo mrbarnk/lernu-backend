@@ -343,3 +343,4 @@ export const videoGenerationStatus = async (req: Request, res: Response) => {
   const status = await getVideoGenerationStatus(video);
   res.json(status);
 };
+
