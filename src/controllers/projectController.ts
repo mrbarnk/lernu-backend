@@ -13,7 +13,7 @@ import {
 import { recordAiUsage } from "../services/aiUsageService";
 import { synthesizeVoice, elevenLabsAvailable } from "../services/voiceService";
 import { env } from "../config/env";
-import { processPreviewJob } from "../services/previewJobService";
+import { processPreviewJob, renderPreviewBuffer } from "../services/previewJobService";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -979,11 +979,23 @@ export const getProjectPreviewStatus = async (req: Request, res: Response) => {
 export const generateProjectPreview = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.projectId, req.user._id);
-  const provider = (req.body?.provider as "openai" | "gemini" | "veo" | undefined) ?? "veo";
+  const provider = (req.body?.provider as "openai" | "gemini" | "veo" | "ffmpeg" | undefined) ?? "veo";
   const quality = (req.body?.quality as "sd" | "hd" | undefined) ?? "sd";
 
   const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
   if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a preview");
+
+  if (provider === "ffmpeg") {
+    const preview = await renderPreviewBuffer(project._id.toString());
+    project.previewStatus = "completed";
+    project.previewProgress = 100;
+    project.previewMessage = undefined;
+    await project.save();
+
+    res.setHeader("Content-Type", preview.mime);
+    res.setHeader("Content-Disposition", `inline; filename="${preview.filename}"`);
+    return res.status(200).send(preview.buffer);
+  }
 
   project.previewStatus = "processing";
   project.previewProgress = 0;

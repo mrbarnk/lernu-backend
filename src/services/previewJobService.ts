@@ -136,6 +136,36 @@ const concatSegments = async (segments: string[]) => {
   }
 };
 
+export const renderPreviewBuffer = async (projectId: string) => {
+  const project = await Project.findById(projectId);
+  if (!project) throw new Error("Project not found");
+
+  const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
+  if (!scenes.length) throw new Error("No scenes to render");
+
+  const segments: string[] = [];
+  for (let i = 0; i < scenes.length; i += 1) {
+    const scene = scenes[i];
+    const duration = scene.duration ?? 5;
+    const segment = await makeSegment({
+      sceneNumber: scene.sceneNumber ?? i + 1,
+      duration,
+      mediaUri: scene.mediaUri,
+      mediaType: scene.mediaType as any,
+      audioUri: scene.audioUri
+    });
+    segments.push(segment);
+  }
+
+  const concatenated = await concatSegments(segments);
+  const buffer = fs.readFileSync(concatenated);
+  return {
+    buffer,
+    mime: "video/mp4",
+    filename: "preview.mp4"
+  };
+};
+
 export const processPreviewJob = async (projectId: string) => {
   const project = await Project.findById(projectId);
   if (!project) return;
