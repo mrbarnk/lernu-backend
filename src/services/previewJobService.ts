@@ -63,7 +63,7 @@ const makeSegment = async (params: {
     if (mediaType === "image") {
       inputs.push("-loop", "1", "-i", mediaUri as string);
       filters.push(
-        `[0:v]scale=1280:720:force_original_aspect_ratio=cover,format=yuv420p[v0]`
+        `[0:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v0]`
       );
     } else {
       inputs.push("-i", mediaUri as string);
