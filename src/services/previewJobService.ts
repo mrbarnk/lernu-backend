@@ -25,11 +25,19 @@ const writeTempFromDataUri = (dataUri: string, ext: string) => {
 
 const runFfmpeg = (args: string[]) =>
   new Promise<void>((resolve, reject) => {
-    const proc = spawn("ffmpeg", args, { stdio: "inherit" });
+    const proc = spawn("ffmpeg", args);
+    let stderr = "";
+    proc.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
     proc.on("error", reject);
     proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}`));
+      if (code === 0) {
+        resolve();
+      } else {
+        const message = `ffmpeg exited with code ${code}. args=${args.join(" ")} stderr=${stderr.trim()}`;
+        reject(new Error(message));
+      }
     });
   });
 
