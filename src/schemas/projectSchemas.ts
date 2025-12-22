@@ -20,7 +20,7 @@ const styleEnum = z.enum([
   "grunge"
 ]);
 const providerEnum = z.enum(["openai", "gemini", "veo"]);
-const previewProviderEnum = z.enum(["openai", "gemini", "veo", "ffmpeg"]);
+const previewProviderEnum = z.enum(["ffmpeg"]);
 const sceneInputSchema = z.object({
   sceneNumber: z.number().int().min(1).optional(),
   description: z.string().min(1).max(2000),

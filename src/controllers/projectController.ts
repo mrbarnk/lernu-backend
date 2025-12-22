@@ -979,11 +979,15 @@ export const getProjectPreviewStatus = async (req: Request, res: Response) => {
 export const generateProjectPreview = async (req: Request, res: Response) => {
   if (!req.user) throw new HttpError(401, "Authentication required");
   const project = await ensureProjectOwned(req.params.projectId, req.user._id);
-  const provider = (req.body?.provider as "openai" | "gemini" | "veo" | "ffmpeg" | undefined) ?? "veo";
+  const provider = (req.body?.provider as "ffmpeg" | undefined) ?? "ffmpeg";
   const quality = (req.body?.quality as "sd" | "hd" | undefined) ?? "sd";
 
   const scenes = await ProjectScene.find({ projectId: project._id }).sort({ sceneNumber: 1 });
   if (!scenes.length) throw new HttpError(400, "Scenes are required to generate a preview");
+
+  if (provider !== "ffmpeg") {
+    throw new HttpError(400, "Only provider 'ffmpeg' is supported for previews");
+  }
 
   if (provider === "ffmpeg") {
     const preview = await renderPreviewBuffer(project._id.toString());
