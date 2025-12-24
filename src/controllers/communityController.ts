@@ -11,6 +11,10 @@ import { serializeComment, serializePost, serializeReel } from "../utils/seriali
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
 
+const authorLevelMatch = { level: { $gte: 7 } };
+const isLevelSevenAuthor = (author?: any) =>
+  typeof author?.level === "number" && author.level >= 7;
+
 export const getCommunityFeed = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   const cursorFilter = buildCursorFilter(cursor);
@@ -18,24 +22,30 @@ export const getCommunityFeed = async (req: Request, res: Response) => {
   const postsPromise = Post.find(cursorFilter)
     .sort({ createdAt: -1 })
     .limit(limit + 1)
-    .populate("author", authorProjection)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
     .lean();
 
   const reelsPromise = Reel.find(cursorFilter)
     .sort({ createdAt: -1 })
     .limit(limit + 1)
-    .populate("author", authorProjection)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
     .lean();
 
   const [posts, reels] = await Promise.all([postsPromise, reelsPromise]);
+  const levelSevenPosts = posts.filter((post) => isLevelSevenAuthor((post as any).author));
+  const levelSevenReels = reels.filter((reel) => isLevelSevenAuthor((reel as any).author));
+
+  const rawCombined = [...posts, ...reels].sort(
+    (a, b) => new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime()
+  );
 
   const combined = [
-    ...posts.map((post) => ({
+    ...levelSevenPosts.map((post) => ({
       type: "post" as const,
       createdAt: post.createdAt,
       payload: serializePost(post as any, req.user?._id, { excerptLength: 240 })
     })),
-    ...reels.map((reel) => ({
+    ...levelSevenReels.map((reel) => ({
       type: "reel" as const,
       createdAt: reel.createdAt,
       payload: serializeReel(reel as any, req.user?._id)
@@ -49,8 +59,9 @@ export const getCommunityFeed = async (req: Request, res: Response) => {
     reel: item.type === "reel" ? item.payload : undefined
   }));
 
-  const hasMore = combined.length > limit;
-  const lastCreatedAt = items[items.length - 1]?.createdAt;
+  const hasMore = rawCombined.length > limit;
+  const cursorSource = hasMore ? rawCombined[limit - 1] : rawCombined[rawCombined.length - 1];
+  const lastCreatedAt = cursorSource?.createdAt;
   const nextCursor = hasMore && lastCreatedAt ? new Date(lastCreatedAt as Date).toISOString() : null;
 
   res.json({ items, nextCursor });

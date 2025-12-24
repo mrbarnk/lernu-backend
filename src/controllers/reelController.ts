@@ -9,6 +9,10 @@ import { serializeReel } from "../utils/serializers";
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
 
+const authorLevelMatch = { level: { $gte: 7 } };
+const isLevelSevenAuthor = (author?: any) =>
+  typeof author?.level === "number" && author.level >= 7;
+
 const ensureObjectId = (id: string) => {
   if (!Types.ObjectId.isValid(id)) throw new HttpError(400, "Invalid id");
 };
@@ -35,19 +39,23 @@ export const listReels = async (req: Request, res: Response) => {
   const reels = await Reel.find(filter)
     .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
-    .populate("author", authorProjection)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
     .lean();
 
+  const levelSevenReels = reels.filter((reel) => isLevelSevenAuthor((reel as any).author));
+
   res.json({
-    items: reels.map((r) => serializeReel(r as any, req.user?._id)),
+    items: levelSevenReels.map((r) => serializeReel(r as any, req.user?._id)),
     nextCursor: getNextCursor(reels as any, limit)
   });
 };
 
 export const getReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection).lean();
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .lean();
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   res.json({ reel: serializeReel(reel as any, req.user?._id) });
 };
@@ -56,8 +64,12 @@ export const viewReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   const watchedSeconds =
     typeof req.body?.watchedSeconds === "number" ? req.body.watchedSeconds : 0;
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection);
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id).populate({
+    path: "author",
+    select: authorProjection,
+    match: authorLevelMatch
+  });
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   reel.views = (reel.views ?? 0) + 1;
   reel.totalWatchSeconds = (reel.totalWatchSeconds ?? 0) + watchedSeconds;
@@ -130,8 +142,12 @@ export const deleteReel = async (req: Request, res: Response) => {
 export const likeReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection);
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id).populate({
+    path: "author",
+    select: authorProjection,
+    match: authorLevelMatch
+  });
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   const likedBy = reel.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.addToSet(req.user._id);
@@ -143,8 +159,12 @@ export const likeReel = async (req: Request, res: Response) => {
 export const unlikeReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection);
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id).populate({
+    path: "author",
+    select: authorProjection,
+    match: authorLevelMatch
+  });
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   const likedBy = reel.likedBy as unknown as Types.Array<Types.ObjectId>;
   likedBy.pull(req.user._id);
@@ -156,8 +176,12 @@ export const unlikeReel = async (req: Request, res: Response) => {
 export const bookmarkReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection);
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id).populate({
+    path: "author",
+    select: authorProjection,
+    match: authorLevelMatch
+  });
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   const bookmarked = reel.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.addToSet(req.user._id);
@@ -168,8 +192,12 @@ export const bookmarkReel = async (req: Request, res: Response) => {
 export const unbookmarkReel = async (req: Request, res: Response) => {
   ensureObjectId(req.params.id);
   if (!req.user) throw new HttpError(401, "Authentication required");
-  const reel = await Reel.findById(req.params.id).populate("author", authorProjection);
-  if (!reel) throw new HttpError(404, "Reel not found");
+  const reel = await Reel.findById(req.params.id).populate({
+    path: "author",
+    select: authorProjection,
+    match: authorLevelMatch
+  });
+  if (!reel || !isLevelSevenAuthor((reel as any).author)) throw new HttpError(404, "Reel not found");
   if (!canViewReel(reel)) throw new HttpError(404, "Reel not found");
   const bookmarked = reel.bookmarkedBy as unknown as Types.Array<Types.ObjectId>;
   bookmarked.pull(req.user._id);

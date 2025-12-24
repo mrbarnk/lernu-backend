@@ -1577,11 +1577,47 @@ paths:
 
   /sitemap.xml:
     get:
-      summary: Sitemap XML of posts
-      description: Returns up to 5000 most recent posts with title slugs.
+      summary: Sitemap index
+      description: Sitemap index referencing content-specific sitemaps.
       responses:
         "200":
-          description: XML sitemap
+          description: Sitemap index (XML)
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /sitemaps/posts.xml:
+    get:
+      summary: Posts sitemap
+      description: Up to 5000 most recent posts with SEO-friendly URLs and metadata.
+      responses:
+        "200":
+          description: Posts sitemap (XML)
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /sitemaps/categories.xml:
+    get:
+      summary: Categories sitemap
+      description: Category hub URLs for topical authority.
+      responses:
+        "200":
+          description: Categories sitemap (XML)
+          content:
+            application/xml:
+              schema:
+                type: string
+
+  /sitemaps/pages.xml:
+    get:
+      summary: Static pages sitemap
+      description: Core static pages and hubs.
+      responses:
+        "200":
+          description: Static pages sitemap (XML)
           content:
             application/xml:
               schema:

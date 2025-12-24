@@ -11,6 +11,10 @@ import { getOnlineUsers } from "../services/presenceService";
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
 
+const authorLevelMatch = { level: { $gte: 7 } };
+const isLevelSevenAuthor = (author?: any) =>
+  typeof author?.level === "number" && author.level >= 7;
+
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
 };
@@ -20,11 +24,14 @@ export const getUserProfile = async (req: Request, res: Response) => {
   const user = await User.findById(req.params.id);
   if (!user) throw new HttpError(404, "User not found");
 
-  const recentPosts = await Post.find({ author: user._id })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .populate("author", authorProjection)
-    .lean();
+  const canShowPosts = isLevelSevenAuthor(user);
+  const recentPosts = canShowPosts
+    ? await Post.find({ author: user._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+        .lean()
+    : [];
 
   res.json({
     user: serializeUser(user, req.user?._id),
@@ -48,10 +55,17 @@ export const getUserPosts = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   const userId = new Types.ObjectId(req.params.id);
 
+  const author = await User.findById(userId);
+  if (!author) throw new HttpError(404, "User not found");
+  if (!isLevelSevenAuthor(author)) {
+    res.json({ items: [], nextCursor: null });
+    return;
+  }
+
   const posts = await Post.find({ author: userId, ...buildCursorFilter(cursor) })
     .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
-    .populate("author", authorProjection)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
     .lean();
 
   res.json({
@@ -64,11 +78,14 @@ export const getUserProfileByUsername = async (req: Request, res: Response) => {
   const user = await User.findOne({ username: req.params.username });
   if (!user) throw new HttpError(404, "User not found");
 
-  const recentPosts = await Post.find({ author: user._id })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .populate("author", authorProjection)
-    .lean();
+  const canShowPosts = isLevelSevenAuthor(user);
+  const recentPosts = canShowPosts
+    ? await Post.find({ author: user._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+        .lean()
+    : [];
 
   res.json({
     user: serializeUser(user, req.user?._id),
@@ -81,10 +98,15 @@ export const getUserPostsByUsername = async (req: Request, res: Response) => {
   if (!user) throw new HttpError(404, "User not found");
   const { limit, cursor } = parsePagination(req.query, 10, 50);
 
+  if (!isLevelSevenAuthor(user)) {
+    res.json({ items: [], nextCursor: null });
+    return;
+  }
+
   const posts = await Post.find({ author: user._id, ...buildCursorFilter(cursor) })
     .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
-    .populate("author", authorProjection)
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
     .lean();
 
   res.json({
