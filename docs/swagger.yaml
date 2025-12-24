@@ -264,6 +264,28 @@ paths:
                           type: string
                         count:
                           type: integer
+  /posts/slug/{slug}:
+    get:
+      summary: Get post by slug
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  post:
+                    $ref: '#/components/schemas/Post'
+        "404":
+          $ref: '#/components/responses/NotFound'
   /posts/{id}:
     get:
       summary: Get post
@@ -2600,6 +2622,7 @@ components:
       type: object
       properties:
         id: { type: string }
+        slug: { type: string }
         author: { $ref: '#/components/schemas/User' }
         categoryId: { type: string }
         title: { type: string, nullable: true }
@@ -2725,6 +2748,7 @@ components:
       required: [content, categoryId]
       properties:
         title: { type: string, nullable: true }
+        slug: { type: string, description: "Optional custom slug; will be normalized and uniqued." }
         content: { type: string }
         categoryId: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }
@@ -2740,6 +2764,7 @@ components:
       type: object
       properties:
         title: { type: string, nullable: true }
+        slug: { type: string, description: "Optional custom slug; will be normalized and uniqued." }
         content: { type: string }
         categoryId: { type: string }
         code: { $ref: '#/components/schemas/CodeBlock' }

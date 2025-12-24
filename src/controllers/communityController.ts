@@ -6,6 +6,7 @@ import { Reel } from "../models/Reel";
 import { HttpError } from "../middleware/error";
 import { notifyMentions } from "../services/notificationService";
 import { buildCursorFilter, parsePagination } from "../utils/pagination";
+import { generateUniqueSlug } from "../utils/postSlug";
 import { serializeComment, serializePost, serializeReel } from "../utils/serializers";
 
 const authorProjection =
@@ -79,13 +80,21 @@ export const createCommunityPost = async (req: Request, res: Response) => {
 
   const { content, code, images } = req.body;
 
+  const _id = new Types.ObjectId();
+  const slug = await generateUniqueSlug(
+    { slug: req.body.slug, title: undefined, content, fallbackId: _id.toString() },
+    _id
+  );
+
   const post = await Post.create({
+    _id,
     content,
     code,
     images,
     author: req.user._id,
     categoryId: null,
-    title: undefined
+    title: undefined,
+    slug
   });
 
   await notifyMentions(content, req.user._id, post._id, undefined);

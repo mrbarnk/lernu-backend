@@ -4,6 +4,7 @@ import {
   createPost,
   deletePost,
   getPost,
+  getPostBySlug,
   likePost,
   listPosts,
   reportPost,
@@ -28,6 +29,7 @@ const router = Router();
 router.get("/", optionalAuth, validate(cursorSchema), listPosts);
 router.get("/trending", optionalAuth, trendingPosts);
 router.get("/trending/tags", trendingTags);
+router.get("/slug/:slug", optionalAuth, getPostBySlug);
 router.get("/:id", optionalAuth, getPost);
 router.post("/", requireAuth, validate(createPostSchema), createPost);
 router.patch("/:id", requireAuth, validate(updatePostSchema), updatePost);

@@ -9,6 +9,7 @@ import { serializePost } from "../utils/serializers";
 import { maybeAwardDailyContributionCredits, CONTRIBUTION_CREDIT_REWARD } from "../services/creditService";
 import { notifyMentions, notifyUser } from "../services/notificationService";
 import { sanitizeText } from "../utils/sanitize";
+import { buildSlugBase, ensureUniqueSlug, normalizeSlug } from "../utils/postSlug";
 
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
@@ -133,6 +134,17 @@ export const getPost = async (req: Request, res: Response) => {
   res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
 
+export const getPostBySlug = async (req: Request, res: Response) => {
+  const slug = normalizeSlug(req.params.slug);
+  if (!slug) throw new HttpError(400, "Invalid slug");
+  const post = await Post.findOne({ slug })
+    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .lean();
+  if (!post || !isLevelSevenAuthor((post as any).author)) throw new HttpError(404, "Post not found");
+  if (!canViewPost(post)) throw new HttpError(404, "Post not found");
+  res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
+};
+
 export const createPost = async (req: Request, res: Response) => {
   const { title, content, categoryId, code, images, tags } = req.body;
   const category = await Category.findById(categoryId);
@@ -145,7 +157,17 @@ export const createPost = async (req: Request, res: Response) => {
   const isVisible =
     canSetVisibility && typeof req.body.isVisible === "boolean" ? req.body.isVisible : true;
 
+  const _id = new Types.ObjectId();
+  const slugBase = buildSlugBase({
+    slug: req.body.slug,
+    title: safeTitle,
+    content: safeContent,
+    fallbackId: _id.toString()
+  });
+  const slug = await ensureUniqueSlug(slugBase);
+
   const post = await Post.create({
+    _id,
     title: safeTitle,
     content: safeContent,
     categoryId,
@@ -153,7 +175,8 @@ export const createPost = async (req: Request, res: Response) => {
     images,
     tags,
     author: req.user._id,
-    isVisible
+    isVisible,
+    slug
   });
 
   await notifyMentions(safeContent, req.user._id, post._id, safeTitle);
@@ -207,6 +230,23 @@ export const updatePost = async (req: Request, res: Response) => {
   if (isPinned !== undefined) post.isPinned = isPinned;
   if (isSolved !== undefined) post.isSolved = isSolved;
   if (isVisible !== undefined) post.isVisible = isVisible;
+  if (fields.slug !== undefined) {
+    const slugBase = buildSlugBase({
+      slug: fields.slug,
+      title: post.title,
+      content: post.content,
+      fallbackId: post._id.toString()
+    });
+    post.slug = await ensureUniqueSlug(slugBase, post._id);
+  }
+  if (!post.slug) {
+    const slugBase = buildSlugBase({
+      title: post.title,
+      content: post.content,
+      fallbackId: post._id.toString()
+    });
+    post.slug = await ensureUniqueSlug(slugBase, post._id);
+  }
   post.isEdited = true;
 
   await post.save();

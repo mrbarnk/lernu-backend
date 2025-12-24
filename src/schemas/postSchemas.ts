@@ -15,6 +15,7 @@ export const createPostSchema = z.object({
     title: z.string().min(1),
     content: z.string().min(1),
     categoryId: z.string(),
+    slug: z.string().min(1).optional(),
     code: codeSchema,
     images: imagesSchema,
     tags: tagsSchema
@@ -27,6 +28,7 @@ export const updatePostSchema = z.object({
     title: z.string().min(1).optional(),
     content: z.string().min(1).optional(),
     categoryId: z.string().optional(),
+    slug: z.string().min(1).optional(),
     code: codeSchema,
     images: imagesSchema,
     tags: tagsSchema,

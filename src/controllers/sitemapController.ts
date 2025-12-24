@@ -8,7 +8,7 @@ const baseUrl = env.clientUrl.replace(/\/+$/, "");
 const xmlNs = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"';
 
 const toIsoString = (value?: Date | string) => new Date(value ?? Date.now()).toISOString();
-const toAbsoluteUrl = (path: string,apiBase:boolean=false) =>
+const toAbsoluteUrl = (path: string, apiBase: boolean = false) =>
   // if apiBase is true, we want to use api.${baseUrl}, else use client url
   apiBase
     ? `${baseUrl.replace(/^(https?:\/\/)(www\.)?/, "$1api.")}${path.startsWith("/") ? path : `/${path}`}`.replace(
@@ -31,11 +31,20 @@ const buildPostSlug = (post: { title?: string | null; content?: string; id: stri
   const candidate =
     (post.title && post.title.trim()) || (post.content || "").slice(0, 120) || post.id;
   const slug = slugifyForSitemap(candidate);
-  return slug.length > 0 ? slug : `post-${post.id.slice(-6)}`;
+  const suffix = post.id.slice(-6);
+  if (slug.length > 0) {
+    const maxBaseLength = Math.max(1, 60 - (suffix.length + 1)); // account for "-<suffix>"
+    const trimmed = slug.slice(0, maxBaseLength);
+    return `${trimmed}-${suffix}`;
+  }
+  return `post-${suffix}`;
 };
 
-const generatePostUrl = (post: { id: string; title?: string | null; content?: string }) =>
-  `/blog/${buildPostSlug(post)}`;
+const resolvePostPath = (post: { id: string; slug?: string; title?: string | null; content?: string }) => {
+  const rawSlug = (post as any).slug as string | undefined;
+  const slug = rawSlug && rawSlug.trim().length > 0 ? rawSlug : buildPostSlug(post);
+  return `/blog/${slug}`;
+};
 
 const generateCategoryUrl = (categoryName: string) => `/blog/${slugifyForSitemap(categoryName)}`;
 
@@ -59,7 +68,7 @@ const xmlUrlEntry = (url: {
 };
 
 export const getPostsSitemap = async (_req: Request, res: Response) => {
-  const posts = await Post.find({}, "title content createdAt updatedAt")
+  const posts = await Post.find({}, "title content slug createdAt updatedAt")
     .sort({ createdAt: -1 })
     .limit(5000)
     .lean();
@@ -68,9 +77,10 @@ export const getPostsSitemap = async (_req: Request, res: Response) => {
     .filter((post) => meetsLength(post.content || post.title || ""))
     .map((post) => {
       const loc = toAbsoluteUrl(
-        generatePostUrl({
+        resolvePostPath({
           title: post.title,
           id: post._id.toString(),
+          slug: (post as any).slug,
           content: post.content || ""
         })
       );

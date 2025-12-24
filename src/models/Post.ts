@@ -11,6 +11,7 @@ export interface PostAttrs {
   author: Types.ObjectId | UserDocument;
   categoryId?: Types.ObjectId | CategoryDocument | null;
   title?: string;
+  slug?: string;
   content: string;
   code?: CodeBlock;
   images?: string[];
@@ -21,6 +22,7 @@ export interface PostAttrs {
 }
 
 export interface PostDocument extends Document, PostAttrs {
+  slug: string;
   likes: number;
   commentsCount: number;
   shares: number;
@@ -44,6 +46,7 @@ const postSchema = new Schema<PostDocument>(
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     categoryId: { type: Schema.Types.ObjectId, ref: "Category", default: null },
     title: { type: String, trim: true },
+    slug: { type: String, trim: true },
     content: { type: String, required: true },
     code: codeSchema,
     images: {
@@ -71,6 +74,7 @@ const postSchema = new Schema<PostDocument>(
 );
 
 postSchema.index({ title: "text", content: "text", tags: "text" });
+postSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $exists: true } } });
 
 function arrayLimit(max: number) {
   return (val: unknown[]) => !val || val.length <= max;

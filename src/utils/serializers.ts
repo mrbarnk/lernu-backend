@@ -5,6 +5,7 @@ import { PostDocument } from "../models/Post";
 import { ReelDocument } from "../models/Reel";
 import { UserDocument } from "../models/User";
 import { formatDisplayTime } from "./date";
+import { slugify } from "./slug";
 import { CourseDocument } from "../models/Course";
 import { CourseLessonDocument } from "../models/CourseLesson";
 import { CourseProgressDocument } from "../models/CourseProgress";
@@ -47,6 +48,19 @@ const makeExcerpt = (text?: string, length = 200) => {
   return `${text.slice(0, length).trimEnd()}…`;
 };
 
+const fallbackSlug = (post: { _id: Types.ObjectId; title?: string | null; content?: string }) => {
+  const candidate =
+    (post.title && post.title.trim()) || (post.content || "").slice(0, 120) || post._id.toString();
+  const base = slugify(candidate);
+  const suffix = post._id.toString().slice(-6);
+  if (base.length > 0) {
+    const maxBaseLength = Math.max(1, 60 - (suffix.length + 1)); // reserve for "-<suffix>"
+    const trimmedBase = base.slice(0, maxBaseLength);
+    return `${trimmedBase}-${suffix}`;
+  }
+  return `post-${suffix}`;
+};
+
 export const serializePost = (
   post: Partial<PostDocument> & { _id: Types.ObjectId },
   currentUserId?: Types.ObjectId,
@@ -63,6 +77,7 @@ export const serializePost = (
         ? serializeUser(post.author as unknown as UserDocument, currentUserId)
         : undefined,
     categoryId: post.categoryId ? toId(post.categoryId as Types.ObjectId) : undefined,
+    slug: (post as any).slug || fallbackSlug(post as any),
     title: post.title,
     content: options?.excerptLength ? makeExcerpt(post.content, options.excerptLength) : post.content,
     code: post.code,
