@@ -8,7 +8,14 @@ const baseUrl = env.clientUrl.replace(/\/+$/, "");
 const xmlNs = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"';
 
 const toIsoString = (value?: Date | string) => new Date(value ?? Date.now()).toISOString();
-const toAbsoluteUrl = (path: string) =>
+const toAbsoluteUrl = (path: string,apiBase:boolean=false) =>
+  // if apiBase is true, we want to use api.${baseUrl}, else use client url
+  apiBase
+    ? `${baseUrl.replace(/^(https?:\/\/)(www\.)?/, "$1api.")}${path.startsWith("/") ? path : `/${path}`}`.replace(
+        /([^:]\/)\/+/g,
+        "$1"
+      )
+    :
   `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`.replace(/([^:]\/)\/+/g, "$1");
 
 const trimSlug = (slug: string, max = 60) => {
@@ -133,15 +140,15 @@ export const getSitemapIndex = async (_req: Request, res: Response) => {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex ${xmlNs}>
   <sitemap>
-    <loc>${toAbsoluteUrl("/sitemaps/posts.xml")}</loc>
+    <loc>${toAbsoluteUrl("/sitemaps/posts.xml", true)}</loc>
     <lastmod>${postLastmod}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${toAbsoluteUrl("/sitemaps/categories.xml")}</loc>
+    <loc>${toAbsoluteUrl("/sitemaps/categories.xml", true)}</loc>
     <lastmod>${now}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${toAbsoluteUrl("/sitemaps/pages.xml")}</loc>
+    <loc>${toAbsoluteUrl("/sitemaps/pages.xml", true)}</loc>
     <lastmod>${now}</lastmod>
   </sitemap>
 </sitemapindex>`;
