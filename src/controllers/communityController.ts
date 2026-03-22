@@ -12,10 +12,6 @@ import { serializeComment, serializePost, serializeReel } from "../utils/seriali
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
 
-const authorLevelMatch = { level: { $gte: 7 } };
-const isLevelSevenAuthor = (author?: any) =>
-  typeof author?.level === "number" && author.level >= 7;
-
 export const getCommunityFeed = async (req: Request, res: Response) => {
   const { limit, cursor } = parsePagination(req.query, 10, 50);
   const cursorFilter = buildCursorFilter(cursor);
@@ -23,30 +19,27 @@ export const getCommunityFeed = async (req: Request, res: Response) => {
   const postsPromise = Post.find(cursorFilter)
     .sort({ createdAt: -1 })
     .limit(limit + 1)
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
 
   const reelsPromise = Reel.find(cursorFilter)
     .sort({ createdAt: -1 })
     .limit(limit + 1)
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
 
   const [posts, reels] = await Promise.all([postsPromise, reelsPromise]);
-  const levelSevenPosts = posts.filter((post) => isLevelSevenAuthor((post as any).author));
-  const levelSevenReels = reels.filter((reel) => isLevelSevenAuthor((reel as any).author));
-
   const rawCombined = [...posts, ...reels].sort(
     (a, b) => new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime()
   );
 
   const combined = [
-    ...levelSevenPosts.map((post) => ({
+    ...posts.map((post) => ({
       type: "post" as const,
       createdAt: post.createdAt,
       payload: serializePost(post as any, req.user?._id, { excerptLength: 240 })
     })),
-    ...levelSevenReels.map((reel) => ({
+    ...reels.map((reel) => ({
       type: "reel" as const,
       createdAt: reel.createdAt,
       payload: serializeReel(reel as any, req.user?._id)

@@ -14,9 +14,6 @@ import { buildSlugBase, ensureUniqueSlug, normalizeSlug } from "../utils/postSlu
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers";
 
-const authorLevelMatch = { level: { $gte: 7 } };
-const isLevelSevenAuthor = (author?: any) =>
-  typeof author?.level === "number" && author.level >= 7;
 
 const ensureValidObjectId = (value: string, message = "Invalid id") => {
   if (!Types.ObjectId.isValid(value)) throw new HttpError(400, message);
@@ -60,15 +57,11 @@ export const listPosts = async (req: Request, res: Response) => {
   const posts = await Post.find(filter)
     .sort({ isPinned: -1, createdAt: -1 })
     .limit(limit)
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
 
-  const levelSevenPosts = posts.filter((post) => isLevelSevenAuthor((post as any).author));
-
   res.json({
-    items: levelSevenPosts.map((post) =>
-      serializePost(post as any, req.user?._id, { excerptLength: 240 })
-    ),
+    items: posts.map((post) => serializePost(post as any, req.user?._id, { excerptLength: 240 })),
     nextCursor: getNextCursor(posts as any, limit)
   });
 };
@@ -89,11 +82,10 @@ export const trendingPosts = async (req: Request, res: Response) => {
   const filter = { $and: [baseFilter, visibility] };
 
   const posts = await Post.find(filter)
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
 
   const ranked = posts
-    .filter((post) => isLevelSevenAuthor((post as any).author))
     .map((p) => ({
       ...p,
       engagementScore: (p.likes ?? 0) + (p.commentsCount ?? 0) * 2 + (p.shares ?? 0)
@@ -127,9 +119,9 @@ export const trendingTags = async (req: Request, res: Response) => {
 export const getPost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id)
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
-  if (!post || !isLevelSevenAuthor((post as any).author)) throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
@@ -138,9 +130,9 @@ export const getPostBySlug = async (req: Request, res: Response) => {
   const slug = normalizeSlug(req.params.slug);
   if (!slug) throw new HttpError(400, "Invalid slug");
   const post = await Post.findOne({ slug })
-    .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+    .populate({ path: "author", select: authorProjection })
     .lean();
-  if (!post || !isLevelSevenAuthor((post as any).author)) throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   res.json({ post: { ...serializePost(post as any, req.user?._id), content: post.content } });
 };
@@ -269,11 +261,9 @@ export const likePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate({
     path: "author",
-    select: authorProjection,
-    match: authorLevelMatch
+    select: authorProjection
   });
-  if (!post || !isLevelSevenAuthor((post as any).author))
-    throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
@@ -297,11 +287,9 @@ export const unlikePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate({
     path: "author",
-    select: authorProjection,
-    match: authorLevelMatch
+    select: authorProjection
   });
-  if (!post || !isLevelSevenAuthor((post as any).author))
-    throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
@@ -317,11 +305,9 @@ export const bookmarkPost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate({
     path: "author",
-    select: authorProjection,
-    match: authorLevelMatch
+    select: authorProjection
   });
-  if (!post || !isLevelSevenAuthor((post as any).author))
-    throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
@@ -336,11 +322,9 @@ export const unbookmarkPost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate({
     path: "author",
-    select: authorProjection,
-    match: authorLevelMatch
+    select: authorProjection
   });
-  if (!post || !isLevelSevenAuthor((post as any).author))
-    throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!req.user) throw new HttpError(401, "Authentication required");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
 
@@ -355,11 +339,9 @@ export const sharePost = async (req: Request, res: Response) => {
   ensureValidObjectId(req.params.id, "Invalid post id");
   const post = await Post.findById(req.params.id).populate({
     path: "author",
-    select: authorProjection,
-    match: authorLevelMatch
+    select: authorProjection
   });
-  if (!post || !isLevelSevenAuthor((post as any).author))
-    throw new HttpError(404, "Post not found");
+  if (!post) throw new HttpError(404, "Post not found");
   if (!canViewPost(post)) throw new HttpError(404, "Post not found");
   post.shares = (post.shares ?? 0) + 1;
   await post.save();

@@ -54,9 +54,7 @@ const fallbackSlug = (post: { _id: Types.ObjectId; title?: string | null; conten
   const base = slugify(candidate);
   const suffix = post._id.toString().slice(-6);
   if (base.length > 0) {
-    const maxBaseLength = Math.max(1, 60 - (suffix.length + 1)); // reserve for "-<suffix>"
-    const trimmedBase = base.slice(0, maxBaseLength);
-    return `${trimmedBase}-${suffix}`;
+    return `${base}-${suffix}`;
   }
   return `post-${suffix}`;
 };

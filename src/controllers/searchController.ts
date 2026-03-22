@@ -7,10 +7,6 @@ import { serializePost, serializeUser } from "../utils/serializers";
 const authorProjection =
   "email username displayName avatar coverPhoto bio joinedAt level isOnline role followers badges";
 
-const authorLevelMatch = { level: { $gte: 7 } };
-const isLevelSevenAuthor = (author?: any) =>
-  typeof author?.level === "number" && author.level >= 7;
-
 export const searchAll = async (req: Request, res: Response) => {
   const { q } = req.query as { q: string };
   const limit = Math.min(Number(req.query.limit) || 10, 25);
@@ -23,16 +19,12 @@ export const searchAll = async (req: Request, res: Response) => {
     Post.find({ $text: { $search: q }, ...buildCursorFilter(undefined) })
       .sort({ score: { $meta: "textScore" }, createdAt: -1 })
       .limit(limit)
-      .populate({ path: "author", select: authorProjection, match: authorLevelMatch })
+      .populate({ path: "author", select: authorProjection })
       .lean()
   ]);
 
-  const levelSevenPosts = posts.filter((post) => isLevelSevenAuthor((post as any).author));
-
   res.json({
     users: users.map((u) => serializeUser(u as any, req.user?._id)),
-    posts: levelSevenPosts.map((p) =>
-      serializePost(p as any, req.user?._id, { excerptLength: 240 })
-    )
+    posts: posts.map((p) => serializePost(p as any, req.user?._id, { excerptLength: 240 }))
   });
 };

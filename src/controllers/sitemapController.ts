@@ -33,9 +33,7 @@ const buildPostSlug = (post: { title?: string | null; content?: string; id: stri
   const slug = slugifyForSitemap(candidate);
   const suffix = post.id.slice(-6);
   if (slug.length > 0) {
-    const maxBaseLength = Math.max(1, 60 - (suffix.length + 1)); // account for "-<suffix>"
-    const trimmed = slug.slice(0, maxBaseLength);
-    return `${trimmed}-${suffix}`;
+    return `${slug}-${suffix}`;
   }
   return `post-${suffix}`;
 };
